@@ -54,6 +54,13 @@ export default function TorneoPage() {
           })
         })
 
+        // ✅ ORDENAR POR HORA
+        agrupados.sort((a, b) => {
+          const horaA = a.horaLimpia || ''
+          const horaB = b.horaLimpia || ''
+          return horaA.localeCompare(horaB)
+        })
+
         setMatches(agrupados)
       }
 
