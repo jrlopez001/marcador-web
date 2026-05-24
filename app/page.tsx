@@ -200,31 +200,58 @@ export default function Home() {
 
       <header className="max-w-4xl mx-auto text-center mb-8">
 
-        {/* BOTON TORNEO */}
+{/* BOTONES SUPERIORES */}
 
-        <div className="flex justify-start mb-6">
+<div className="flex justify-start gap-3 mb-6 flex-wrap">
 
-          <Link
-            href="/torneo"
-            className="
-              bg-slate-800
-              hover:bg-green-500
-              transition-all
-              duration-300
-              px-6
-              py-3
-              rounded-2xl
-              border
-              border-slate-700
-              font-black
-              uppercase
-              hover:scale-105
-            "
-          >
-            Torneo
-          </Link>
+  {/* TORNEO */}
 
-        </div>
+  <Link
+    href="/torneo"
+    className="
+      bg-slate-800
+      hover:bg-green-500
+      transition-all
+      duration-300
+      px-6
+      py-3
+      rounded-2xl
+      border
+      border-slate-700
+      font-black
+      uppercase
+      hover:scale-105
+    "
+  >
+    🏆 Torneo
+  </Link>
+
+  {/* EVENTO */}
+
+  <select
+    className="
+      bg-slate-800
+      border
+      border-slate-700
+      rounded-2xl
+      px-5
+      py-3
+      font-black
+      uppercase
+      text-white
+      outline-none
+      cursor-pointer
+      hover:border-green-500
+      transition-all
+      duration-300
+    "
+  >
+    <option>📅 Evento</option>
+    <option>Viernes</option>
+    <option>Sábado</option>
+    </select>
+
+</div>
 
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-black italic uppercase leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
           Marcador

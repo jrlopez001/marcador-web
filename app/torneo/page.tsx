@@ -68,18 +68,22 @@ export default function TorneoPage() {
       style={{
         minHeight: '100vh',
         background:
-          'linear-gradient(135deg, #063d21 0%, #0a4a29 100%)',
-        padding: '20px',
+          'linear-gradient(180deg,#020817 0%,#041222 100%)',
+        padding: '20px 14px',
         color: 'white',
         fontFamily: 'system-ui',
       }}
     >
+      {/* TITULO */}
+
       <h1
         style={{
           textAlign: 'center',
-          fontSize: '24px',
-          marginBottom: '20px',
-          fontWeight: '800',
+          fontSize: '28px',
+          marginBottom: '28px',
+          fontWeight: '900',
+          color: '#ffffff',
+          letterSpacing: '-1px',
         }}
       >
         SORTEO DE PARTIDOS
@@ -92,7 +96,7 @@ export default function TorneoPage() {
           display: 'flex',
           justifyContent: 'center',
           gap: '10px',
-          marginBottom: '20px',
+          marginBottom: '22px',
           flexWrap: 'wrap',
         }}
       >
@@ -101,16 +105,25 @@ export default function TorneoPage() {
             key={cat}
             onClick={() => setCategoria(cat)}
             style={{
-              padding: '8px 20px',
+              padding: '8px 18px',
               borderRadius: '20px',
-              border: '2px solid white',
+              border: '2px solid #00ff9d',
               background:
-                categoria === cat ? 'white' : 'transparent',
+                categoria === cat
+                  ? '#00ff9d'
+                  : 'transparent',
               color:
-                categoria === cat ? '#0a4a29' : 'white',
+                categoria === cat
+                  ? '#000'
+                  : '#ffffff',
               fontWeight: 'bold',
               cursor: 'pointer',
-              transition: 'all 0.3s',
+              transition: '0.3s',
+              fontSize: '15px',
+              boxShadow:
+                categoria === cat
+                  ? '0 0 20px rgba(0,255,157,0.25)'
+                  : 'none',
             }}
           >
             {cat}
@@ -124,7 +137,7 @@ export default function TorneoPage() {
         style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '10px',
+          gap: '12px',
           marginBottom: '30px',
           flexWrap: 'wrap',
         }}
@@ -134,19 +147,26 @@ export default function TorneoPage() {
             key={g}
             onClick={() => setGrupo(g)}
             style={{
-              width: '45px',
-              height: '45px',
+              width: '48px',
+              height: '48px',
               borderRadius: '50%',
-              border: '2px solid white',
+              border: '2px solid #00ff9d',
               background:
-                grupo === g ? '#FFD700' : 'transparent',
-              color: grupo === g ? '#000' : 'white',
-              fontWeight: 'bold',
-              fontSize: '16px',
+                grupo === g
+                  ? '#00ff9d'
+                  : 'transparent',
+              color:
+                grupo === g
+                  ? '#000'
+                  : '#ffffff',
+              fontWeight: '900',
+              fontSize: '20px',
               cursor: 'pointer',
-              transition: 'all 0.3s',
-              transform:
-                grupo === g ? 'scale(1.1)' : 'scale(1)',
+              transition: '0.3s',
+              boxShadow:
+                grupo === g
+                  ? '0 0 20px rgba(0,255,157,0.45)'
+                  : 'none',
             }}
           >
             {g}
@@ -160,7 +180,7 @@ export default function TorneoPage() {
         <p
           style={{
             textAlign: 'center',
-            opacity: 0.8,
+            color: '#94a3b8',
           }}
         >
           Cargando partidos...
@@ -173,7 +193,7 @@ export default function TorneoPage() {
         <p
           style={{
             textAlign: 'center',
-            opacity: 0.8,
+            color: '#94a3b8',
           }}
         >
           No hay partidos disponibles
@@ -186,8 +206,8 @@ export default function TorneoPage() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '15px',
-          maxWidth: '500px',
+          gap: '14px',
+          maxWidth: '520px',
           margin: '0 auto',
         }}
       >
@@ -204,19 +224,23 @@ export default function TorneoPage() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.1)',
+                background:
+                  'linear-gradient(180deg,#0b1220 0%,#111827 100%)',
                 padding: '8px',
-                borderRadius: '8px',
+                borderRadius: '14px',
                 border:
-                  '1px solid rgba(255,255,255,0.2)',
+                  '1px solid rgba(0,255,157,0.12)',
                 textAlign: 'center',
-                width: '80px',
+                width: '88px',
+                minWidth: '88px',
+                boxShadow:
+                  '0 10px 30px rgba(0,0,0,0.45)',
               }}
             >
               <div
                 style={{
-                  fontSize: '9px',
-                  opacity: 0.7,
+                  fontSize: '11px',
+                  color: '#94a3b8',
                 }}
               >
                 {m.dia}
@@ -225,7 +249,9 @@ export default function TorneoPage() {
               <div
                 style={{
                   fontWeight: 'bold',
-                  fontSize: '12px',
+                  fontSize: '14px',
+                  marginTop: '4px',
+                  color: '#00ff9d',
                 }}
               >
                 {m.horaLimpia}
@@ -240,29 +266,47 @@ export default function TorneoPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'rgba(255,255,255,0.9)',
-                color: '#000',
-                padding: '12px 15px',
-                borderRadius: '12px',
+                background:
+                  'linear-gradient(180deg,#0f172a 0%,#111827 100%)',
+                color: '#ffffff',
+                padding: '14px 16px',
+                borderRadius: '16px',
                 fontWeight: 'bold',
+                gap: '8px',
+                border:
+                  '1px solid rgba(0,255,157,0.12)',
+                boxShadow:
+                  '0 10px 30px rgba(0,0,0,0.45)',
               }}
             >
-              <span style={{ fontSize: '14px' }}>
+              <span
+                style={{
+                  fontSize: '15px',
+                  flex: 1,
+                  wordBreak: 'break-word',
+                }}
+              >
                 {m.equipo1}
               </span>
 
               <span
                 style={{
-                  color: '#0a4a29',
-                  fontSize: '10px',
-                  fontStyle: 'italic',
-                  margin: '0 5px',
+                  color: '#00ff9d',
+                  fontSize: '11px',
+                  fontWeight: '900',
                 }}
               >
-                vrs
+                VS
               </span>
 
-              <span style={{ fontSize: '14px' }}>
+              <span
+                style={{
+                  fontSize: '15px',
+                  flex: 1,
+                  textAlign: 'right',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {m.equipo2}
               </span>
             </div>
