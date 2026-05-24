@@ -3,174 +3,84 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-interface GrupoData {
-  id: string
-  grupo: string | null
-  dia: string | null
-  hora: string | null
-  equipos: { nombre: string } | { nombre: string }[] | null
-  categorias: { id: string; nombre: string } | { id: string; nombre: string }[] | null
-}
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function TorneoPage() {
-  // Estados para controlar qué filtro está activo
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('Libre')
-  const [grupoSeleccionado, setGrupoSeleccionado] = useState<string>('A')
-  
-  // Estado para guardar los partidos/grupos que vienen de Supabase
-  const [partidos, setPartidos] = useState<GrupoData[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
+  const [categoria, setCategoria] = useState('Libre')
+  const [grupo, setGrupo] = useState('A')
+  const [matches, setMatches] = useState<any[]>([])
 
-  // Cada vez que cambie la categoría o el grupo, vamos a Supabase a traer la info fresca
   useEffect(() => {
-    async function cargarPartidos() {
-      setLoading(true)
-      
-      // Consultamos la tabla grupos filtrando por el nombre del grupo (A, B, C)
-      const { data, error } = await supabase
-        .from('grupos')
-        .select(`
-          id,
-          grupo,
-          dia,
-          hora,
-          equipos ( nombre ),
-          categorias ( id, nombre )
-        `)
-        .eq('grupo', grupoSeleccionado) as { data: GrupoData[] | null; error: any }
-
-      if (error) {
-        console.error('Error cargando datos de torneo:', error)
-      } else if (data) {
-        // Filtramos en el cliente para asegurarnos de que coincida con el nombre de la categoría seleccionada
-        const datosFiltrados = data.filter((item) => {
-          const cat = Array.isArray(item.categorias) ? item.categorias[0] : item.categorias
-          return cat?.nombre?.toLowerCase() === categoriaSeleccionada.toLowerCase()
+    async function cargar() {
+      const { data } = await supabase.from('grupos').select('*, equipos(nombre), categorias(nombre)')
+      if (data) {
+        const filtrados = data.filter(p => p.categorias?.nombre === categoria && p.grupo === grupo)
+        
+        const agrupados: any[] = []
+        const padres = filtrados.filter(p => !p.hora?.includes('#'))
+        
+        padres.forEach(padre => {
+          const hijo = filtrados.find(p => p.hora?.includes(padre.id))
+          agrupados.push({
+            ...padre,
+            equipo1: padre.equipos?.nombre || 'Pendiente',
+            equipo2: hijo?.equipos?.nombre || 'Pendiente',
+            horaLimpia: padre.hora?.split('#')[0]
+          })
         })
-        setPartidos(datosFiltrados)
+        setMatches(agrupados)
       }
-      setLoading(false)
     }
-
-    cargarPartidos()
-  }, [categoriaSeleccionada, grupoSeleccionado])
+    cargar()
+  }, [categoria, grupo])
 
   return (
-    <div style={{ backgroundColor: '#0A4A29', minHeight: '100vh', padding: '30px', color: 'white', fontFamily: 'sans-serif' }}>
-      
-      {/* HEADER DE LA IMAGEN */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '14px', textTransform: 'uppercase', opacity: 0.8 }}>Categoría:</h2>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-            {['Master', 'Femenino', 'Libre'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoriaSeleccionada(cat)}
-                style={{
-                  padding: '8px 20px',
-                  borderRadius: '20px',
-                  border: '2px solid white',
-                  backgroundColor: categoriaSeleccionada === cat ? 'white' : 'transparent',
-                  color: categoriaSeleccionada === cat ? '#0A4A29' : 'white',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #063d21 0%, #0a4a29 100%)', padding: '20px', color: 'white', fontFamily: 'system-ui' }}>
+      <h1 style={{ textAlign: 'center', fontSize: '24px', marginBottom: '20px', fontWeight: '800' }}>SORTEO DE PARTIDOS</h1>
 
-        <div style={{ textAlign: 'right' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, letterSpacing: '1px' }}>FOOTBALL</h1>
-          <h2 style={{ fontSize: '20px', fontWeight: 'normal', margin: 0, opacity: 0.9 }}>TOURNAMENT</h2>
-        </div>
+      {/* Selector de Categoría */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+        {['Libre', 'Master', 'Femenino'].map(cat => (
+          <button key={cat} onClick={() => setCategoria(cat)} style={{ padding: '8px 20px', borderRadius: '20px', border: '2px solid white', background: categoria === cat ? 'white' : 'transparent', color: categoria === cat ? '#0a4a29' : 'white', fontWeight: 'bold', cursor: 'pointer' }}>{cat}</button>
+        ))}
       </div>
 
-      {/* SELECCIÓN DE GRUPOS (A, B, C) */}
-      <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>GRUPO:</span>
-        {['A', 'B', 'C'].map((grup) => (
-          <button
-            key={grup}
-            onClick={() => setGrupoSeleccionado(grup)}
-            style={{
-              width: '35px',
-              height: '35px',
-              borderRadius: '5px',
-              border: '2px solid white',
-              backgroundColor: grupoSeleccionado === grup ? 'white' : 'transparent',
-              color: grupoSeleccionado === grup ? '#0A4A29' : 'white',
-              fontWeight: 'bold',
-              cursor: 'pointer'
+      {/* BARRA DE GRUPOS NUEVA */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
+        {['A', 'B', 'C', 'D'].map(g => (
+          <button 
+            key={g} 
+            onClick={() => setGrupo(g)} 
+            style={{ 
+              width: '45px', height: '45px', borderRadius: '50%', border: '2px solid white',
+              background: grupo === g ? '#FFD700' : 'transparent', 
+              color: grupo === g ? '#000' : 'white', 
+              fontWeight: 'bold', fontSize: '16px', cursor: 'pointer',
+              transition: 'all 0.3s'
             }}
           >
-            {grup}
+            {g}
           </button>
         ))}
       </div>
 
-      {/* RENDERIZADO DEL TORNEO / LLAVES */}
-      {loading ? (
-        <p style={{ textAlign: 'center', opacity: 0.7 }}>Cargando fixtures de Supabase...</p>
-      ) : partidos.length === 0 ? (
-        <p style={{ textAlign: 'center', opacity: 0.7 }}>No hay partidos agendados para la Categoría {categoriaSeleccionada} - Grupo {grupoSeleccionado}.</p>
-      ) : (
-        /* Contenedor del Bracket / Llaves */
-        <div style={{ display: 'flex', gap: '40px', alignItems: 'center', marginTop: '20px' }}>
-          
-          {/* COLUMNA 1: Cuartos de Final / Enfrentamientos Iniciales de la tabla grupos */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {partidos.map((partido, index) => {
-              const equipo = Array.isArray(partido.equipos) ? partido.equipos[0]?.nombre : partido.equipos?.nombre
-              return (
-                <div key={partido.id} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <div style={{ 
-                    backgroundColor: 'white', 
-                    color: 'black', 
-                    padding: '10px 20px', 
-                    borderRadius: '15px', 
-                    width: '180px',
-                    textAlign: 'center',
-                    fontWeight: '500',
-                    fontSize: '14px'
-                  }}>
-                    {equipo || `Equipo ${index + 1}`}
-                  </div>
-                  <div style={{ fontSize: '11px', textAlign: 'center', opacity: 0.7 }}>
-                    {partido.dia} {partido.hora}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* COLUMNA 2: Marcador de Ganadores (Simulación visual de la imagen) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
-            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: '2px solid white', padding: '10px 15px', borderRadius: '15px', fontSize: '13px' }}>
-              Ganador Partido 1
+      {/* Lista de Enfrentamientos */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '500px', margin: '0 auto' }}>
+        {matches.map((m, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center', width: '80px' }}>
+              <div style={{ fontSize: '9px', opacity: 0.7 }}>{m.dia}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{m.horaLimpia}</div>
             </div>
-            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: '2px solid white', padding: '10px 15px', borderRadius: '15px', fontSize: '13px' }}>
-              Ganador Partido 2
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.9)', color: '#000', padding: '12px 15px', borderRadius: '12px', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '14px' }}>{m.equipo1}</span>
+              <span style={{ color: '#0a4a29', fontSize: '10px', fontStyle: 'italic', margin: '0 5px' }}>vrs</span>
+              <span style={{ fontSize: '14px' }}>{m.equipo2}</span>
             </div>
           </div>
-
-          {/* COLUMNA 3: Finalistas */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '2px solid white', padding: '12px 20px', borderRadius: '15px', fontWeight: 'bold' }}>
-              ¡Campeón! 🏆
-            </div>
-          </div>
-
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }
