@@ -1,35 +1,26 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '../utils/supabase/client'
 
 export default function Home() {
   const [partidos, setPartidos] = useState<any[]>([])
-  const [cargando, setCargando] = useState(true)
-  const [isChecking, setIsChecking] = useState(true)
-  const [mostrarGol, setMostrarGol] = useState(false)
-  const [categoriaActiva, setCategoriaActiva] = useState('Libre')
+  const [categoriaActiva, setCategoriaActiva] = useState('Todos')
   const [eventoActivo, setEventoActivo] = useState('VIERNES')
-  const [countdown, setCountdown] = useState('')
-  const [eventoIniciado, setEventoIniciado] = useState(false)
 
-  //Contador Fecha
-  const fechaEvento = new Date('2026-05-24T08:51:00')
+  // Efecto pantalla gol
+  const [mostrarGol, setMostrarGol] = useState(false)
+
+  // Equipo que hizo gol
+  const [golEquipo, setGolEquipo] = useState<any>({})
+
   const marcadorAnterior = useRef<any>({})
+
   const supabase = createClient()
 
-  // Verificación inicial para evitar parpadeo
-  useEffect(() => {
-    const ahora = new Date()
-    if (ahora.getTime() >= fechaEvento.getTime()) {
-      setEventoIniciado(true)
-    }
-    setIsChecking(false)
-  }, [])
-
-  async function getPartidos() {
-    const { data, error } = await supabase
+  async function fetchPartidos() {
+    const { data } = await supabase
       .from('partidos')
       .select(`
         id,
@@ -37,7 +28,6 @@ export default function Home() {
         goles_ep2,
         estado,
         periodo_actual,
-        likes,
         evento,
         categorias (nombre),
         equipo1:equipo1_id (nombre),
@@ -45,180 +35,166 @@ export default function Home() {
       `)
       .eq('evento', eventoActivo)
 
-    if (error) {
-      console.error(error.message)
-      return
-    }
-
     if (data) {
-      data.forEach((partido) => {
-        const anterior = marcadorAnterior.current[partido.id]
+      data.forEach((p) => {
+        const anterior = marcadorAnterior.current[p.id]
 
-        if (
-          anterior &&
-          (partido.goles_ep1 > anterior.goles_ep1 ||
-            partido.goles_ep2 > anterior.goles_ep2)
-        ) {
-          setMostrarGol(true)
-          setTimeout(() => setMostrarGol(false), 4000)
+        if (anterior) {
+
+          // GOL EQUIPO 1
+          if (p.goles_ep1 > anterior.goles_ep1) {
+
+            // Mostrar pantalla verde
+            setMostrarGol(true)
+
+            // Mostrar pelota en equipo 1
+            setGolEquipo((prev: any) => ({
+              ...prev,
+              [p.id]: 'equipo1'
+            }))
+
+            // Pantalla verde
+            setTimeout(() => {
+              setMostrarGol(false)
+            }, 1300)
+
+            // Pelota 10 segundos
+            setTimeout(() => {
+              setGolEquipo((prev: any) => ({
+                ...prev,
+                [p.id]: null
+              }))
+            }, 4500)
+          }
+
+          // GOL EQUIPO 2
+          if (p.goles_ep2 > anterior.goles_ep2) {
+
+            // Mostrar pantalla verde
+            setMostrarGol(true)
+
+            // Mostrar pelota en equipo 2
+            setGolEquipo((prev: any) => ({
+              ...prev,
+              [p.id]: 'equipo2'
+            }))
+
+            // Pantalla verde
+            setTimeout(() => {
+              setMostrarGol(false)
+            }, 1300)
+
+            // Pelota 10 segundos
+            setTimeout(() => {
+              setGolEquipo((prev: any) => ({
+                ...prev,
+                [p.id]: null
+              }))
+            }, 4500)
+          }
         }
 
-        marcadorAnterior.current[partido.id] = {
-          goles_ep1: partido.goles_ep1,
-          goles_ep2: partido.goles_ep2,
+        marcadorAnterior.current[p.id] = {
+          goles_ep1: p.goles_ep1,
+          goles_ep2: p.goles_ep2
         }
       })
 
-      setPartidos(data)
-      setCargando(false)
+      setPartidos(data || [])
     }
   }
 
   useEffect(() => {
-    getPartidos()
+    fetchPartidos()
 
-    const canal = supabase
-      .channel('realtime-partidos')
+    const channel = supabase
+      .channel('realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'partidos' },
-        () => getPartidos()
+        {
+          event: '*',
+          schema: 'public',
+          table: 'partidos'
+        },
+        () => fetchPartidos()
       )
       .subscribe()
 
-    const timer = setInterval(() => {
-      const ahora = new Date()
-      const diferencia = fechaEvento.getTime() - ahora.getTime()
-
-      if (diferencia <= 0) {
-        setEventoIniciado(true)
-        clearInterval(timer)
-      } else {
-        const d = Math.floor(diferencia / (1000 * 60 * 60 * 24))
-        const h = Math.floor((diferencia / (1000 * 60 * 60)) % 24)
-        const m = Math.floor((diferencia / (1000 * 60)) % 60)
-        const s = Math.floor((diferencia / 1000) % 60)
-
-        setCountdown(`${d}D ${h}H ${m}M ${s}S`)
-      }
-    }, 1000)
-
     return () => {
-      supabase.removeChannel(canal)
-      clearInterval(timer)
+      supabase.removeChannel(channel)
     }
   }, [eventoActivo])
 
-  async function darLike(id: number) {
-    const yaDioLike = localStorage.getItem(`like-${id}`)
+  const getTiempoColor = (tiempo: string) => {
+    const t = tiempo?.toLowerCase() || ''
 
-    if (yaDioLike) {
-      alert('Ya diste like a este partido')
-      return
-    }
+    if (t.includes('1er')) return 'text-emerald-400'
+    if (t.includes('2do')) return 'text-orange-400'
+    if (t.includes('finalizado')) return 'text-red-500'
+    if (t.includes('pendiente')) return 'text-zinc-500'
 
-    const partido = partidos.find((p) => p.id === id)
-
-    if (!partido) return
-
-    const { error } = await supabase
-      .from('partidos')
-      .update({ likes: (partido.likes || 0) + 1 })
-      .eq('id', id)
-
-    if (!error) localStorage.setItem(`like-${id}`, 'true')
-  }
-
-  // Función para determinar qué equipo va ganando
-  function obtenerGanador(goles1: number, goles2: number) {
-    if (goles1 > goles2) return 'local'
-    if (goles2 > goles1) return 'visitante'
-    return 'empate'
-  }
-
-  // Si aún estamos calculando el estado, no mostramos nada
-  if (isChecking) return <main className="min-h-screen bg-[#020617]" />
-
-  if (!eventoIniciado) {
-    return (
-      <main className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-4xl sm:text-6xl font-black text-green-400">
-          {countdown}
-        </div>
-        <p className="mt-4 text-slate-500 uppercase tracking-widest font-bold">
-          Cuenta regresiva
-        </p>
-      </main>
-    )
+    return 'text-white'
   }
 
   return (
-    <main className="min-h-screen bg-[#020617] text-white px-3 py-5 overflow-hidden">
+    <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans">
+
+      {/* EFECTO GOL */}
       {mostrarGol && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
           <div className="absolute inset-0 bg-green-500 animate-pulse opacity-20"></div>
 
           <div className="relative animate-bounce">
-            <h1 className="text-[100px] sm:text-[180px] md:text-[250px] font-black text-green-400 uppercase tracking-tight animate-pulse drop-shadow-[0_0_80px_rgba(34,197,94,1)]">
+            <h1 className="text-[100px] sm:text-[250px] font-black text-green-400 uppercase tracking-tight animate-pulse drop-shadow-[0_0_80px_rgba(34,197,94,1)]">
               GOOOOL
             </h1>
-          </div>
-
-          <div className="absolute top-10 left-10 text-7xl animate-spin">
-            ⚽
-          </div>
-
-          <div className="absolute top-16 right-16 text-6xl animate-bounce">
-            ⚽
-          </div>
-
-          <div className="absolute bottom-10 left-20 text-8xl animate-ping">
-            ⚽
-          </div>
-
-          <div className="absolute bottom-10 right-10 text-7xl animate-spin">
-            ⚽
           </div>
         </div>
       )}
 
-      <header className="max-w-4xl mx-auto text-center mb-8">
-        <div className="flex justify-start gap-3 mb-6 flex-wrap">
-          <Link
-            href="/torneo"
-            className="bg-slate-800 hover:bg-green-500 transition-all duration-300 px-6 py-3 rounded-2xl border border-slate-700 font-black uppercase hover:scale-105"
-          >
-            🏆 Torneo
-          </Link>
-
-          <select
-            value={eventoActivo}
-            onChange={(e) => setEventoActivo(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-3 font-black uppercase text-white outline-none cursor-pointer hover:border-green-500 transition-all"
-          >
-            <option value="VIERNES">📅 Viernes</option>
-            <option value="SABADO">📅 Sábado</option>
-          </select>
-        </div>
-
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-black italic uppercase leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-          Marcador
-          <br />
-          Web
+      {/* CABECERA */}
+      <div className="flex justify-between items-center mb-6 mt-2">
+        <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">
+          MARCADOR WEB
         </h1>
-      </header>
 
-      <div className="max-w-4xl mx-auto mb-8">
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-2 flex gap-2">
-          {['Libre', 'Master', 'Femenino'].map((cat) => (
+        <Link
+          href="/torneo"
+          className="bg-[#1E293B] hover:bg-[#34D399] hover:text-[#0B1120] transition-all px-4 py-1 rounded-full text-[10px] font-bold uppercase"
+        >
+          🏆 Torneo
+        </Link>
+      </div>
+
+      {/* BOTONES EVENTOS */}
+      <div className="flex gap-4 mb-6">
+        {['VIERNES', 'SABADO'].map((e) => (
+          <button
+            key={e}
+            onClick={() => setEventoActivo(e)}
+            className={`px-8 py-3 rounded-full text-sm font-bold transition-all ${
+              eventoActivo === e
+                ? 'bg-[#34D399] text-[#0B1120]'
+                : 'bg-[#1E293B] text-zinc-500'
+            }`}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+
+      {/* CATEGORÍAS */}
+      <div className="text-zinc-500 font-bold mb-6">
+        <div className="flex gap-6 overflow-x-auto pb-2">
+          {['Todos', 'Libre', 'Master', 'Femenino'].map((cat) => (
             <button
               key={cat}
               onClick={() => setCategoriaActiva(cat)}
-              className={`flex-1 py-3 rounded-xl font-black uppercase transition-all ${
+              className={
                 categoriaActiva === cat
-                  ? 'bg-green-400 text-black'
-                  : 'bg-transparent text-white hover:bg-slate-700'
-              }`}
+                  ? 'text-[#34D399] border-b-2 border-[#34D399]'
+                  : 'hover:text-[#34D399]/70'
+              }
             >
               {cat}
             </button>
@@ -226,112 +202,88 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto grid gap-6">
-        {cargando ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 text-center animate-pulse">
-            Cargando marcador...
-          </div>
-        ) : partidos.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 text-center text-yellow-500">
-            No hay partidos activos
-          </div>
-        ) : (
-          partidos
-            .filter((p) => p.categorias?.nombre === categoriaActiva)
-            .map((partido) => {
-              const ganador = obtenerGanador(
-                partido.goles_ep1,
-                partido.goles_ep2
+      {/* PARTIDOS */}
+      <div className="space-y-3">
+        {partidos
+          .filter(
+            (p) =>
+              categoriaActiva === 'Todos' ||
+              p.categorias?.nombre === categoriaActiva
+          )
+          .sort((a, b) => {
+            if (categoriaActiva === 'Todos') {
+              return (a.categorias?.nombre || '').localeCompare(
+                b.categorias?.nombre || ''
               )
+            }
 
-              return (
-                <div
-                  key={partido.id}
-                  className="overflow-hidden rounded-[30px] border border-slate-800 bg-slate-900 shadow-2xl"
-                >
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-800/40 px-4 py-3">
-                    <div className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-green-400">
-                      ● {partido.estado?.replace('_', ' ') || 'EN CURSO'}
-                    </div>
+            return 0
+          })
+          .map((p) => (
+            <div
+              key={p.id}
+              className={`
+                p-4 rounded-xl border flex flex-col gap-2 transition-all duration-500
+                ${
+                  golEquipo[p.id]
+                    ? 'bg-green-500/20 border-green-400 shadow-[0_0_25px_rgba(34,197,94,0.7)]'
+                    : 'bg-[#111827] border-slate-800'
+                }
+              `}
+            >
 
-                    <div className="text-[10px] sm:text-xs uppercase text-slate-400 font-bold text-right">
-                      Categoría: {partido.categorias?.nombre || 'General'}
-                    </div>
-                  </div>
+              {/* CATEGORÍA */}
+              <div className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-center">
+                Categoría: {p.categorias?.nombre || 'N/A'}
+              </div>
 
-                  <div className="px-4 py-8 sm:px-8">
-                    <div className="flex flex-col items-center text-center gap-6">
-                      {/* EQUIPO LOCAL */}
-                      <h2 className="text-2xl sm:text-3xl md:text-4xl font-black uppercase text-white flex items-center gap-2">
-                        {partido.equipo1?.nombre || 'Local'}
+              {/* MARCADOR */}
+              <div className="flex items-center justify-between">
 
-                        {ganador === 'local' && (
-                          <span className="text-green-400 text-3xl sm:text-4xl animate-bounce">
-                            ⚽
-                          </span>
-                        )}
-                      </h2>
+                {/* EQUIPO 1 */}
+                <div className="w-[35%] flex flex-col items-start">
+                  <span className="truncate font-bold text-sm">
+                    {p.equipo1?.nombre}
+                  </span>
 
-                      <div className="w-full max-w-[420px] bg-black border-2 border-slate-700 rounded-[28px] px-8 py-7 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
-                        <div className="flex items-center justify-center gap-6">
-                          <span className="text-7xl sm:text-8xl md:text-9xl font-black text-green-400">
-                            {partido.goles_ep1}
-                          </span>
-
-                          <span className="text-5xl font-black text-slate-700">
-                            -
-                          </span>
-
-                          <span className="text-7xl sm:text-8xl md:text-9xl font-black text-green-400">
-                            {partido.goles_ep2}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* EQUIPO VISITANTE */}
-                      <h2 className="text-2xl sm:text-3xl md:text-4xl font-black uppercase text-white flex items-center gap-2">
-                        {ganador === 'visitante' && (
-                          <span className="text-green-400 text-3xl sm:text-4xl animate-bounce">
-                            ⚽
-                          </span>
-                        )}
-
-                        {partido.equipo2?.nombre || 'Visitante'}
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-slate-800 bg-slate-800/20 px-4 py-4">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <p className="text-sm sm:text-lg uppercase tracking-[0.2em] text-slate-500 font-bold">
-                        {partido.periodo_actual?.replace('_', ' ') ||
-                          'Tiempo Regular'}
-                      </p>
-
-                      <button
-                        onClick={() => darLike(partido.id)}
-                        className="bg-slate-800 hover:bg-green-500 transition-all duration-300 px-5 py-3 rounded-2xl border border-slate-700 hover:scale-110 active:scale-95"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">👍</span>
-
-                          <div className="text-left">
-                            <p className="text-xs uppercase text-slate-400 font-bold">
-                              Buen Partido
-                            </p>
-
-                            <p className="text-2xl font-black text-white">
-                              {partido.likes || 0}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
+                  {golEquipo[p.id] === 'equipo1' && (
+                    <span className="text-2xl animate-bounce mt-1">
+                      ⚽
+                    </span>
+                  )}
                 </div>
-              )
-            })
-        )}
+
+                {/* GOLES */}
+                <div className="flex items-center gap-3 font-mono text-2xl font-black text-[#34D399]">
+                  <span>{p.goles_ep1}</span>
+                  <span className="text-slate-600">-</span>
+                  <span>{p.goles_ep2}</span>
+                </div>
+
+                {/* EQUIPO 2 */}
+                <div className="w-[35%] flex flex-col items-end">
+                  <span className="truncate font-bold text-sm text-right">
+                    {p.equipo2?.nombre}
+                  </span>
+
+                  {golEquipo[p.id] === 'equipo2' && (
+                    <span className="text-2xl animate-bounce mt-1">
+                      ⚽
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* TIEMPO */}
+              <div
+                className={`text-[10px] font-bold uppercase text-center mt-1 ${getTiempoColor(
+                  p.periodo_actual
+                )}`}
+              >
+                {p.periodo_actual || 'Pendiente'}
+              </div>
+            </div>
+          ))}
       </div>
     </main>
   )
