@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
+    "canvas-confetti": "^1.9.4",
     "iconsax-react": "^0.0.8",
     "lucide-react": "^1.17.0",
     "next": "^14.2.35",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20.19.41",
     "@types/react": "^18.3.29",
     "@types/react-dom": "^18.3.7",
