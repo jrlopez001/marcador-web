@@ -6,23 +6,37 @@ import { Heart } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import Navbar from '../Navbar'
 
+interface Goleador {
+  id: number
+  nombre: string
+  numero_camisola: number
+  goles: number
+  equipos?: {
+    nombre: string
+  }
+  categorias?: {
+    nombre: string
+  }
+}
+
 export default function GoleadorPage() {
-  const [goleadores, setGoleadores] = useState<any[]>([])
+  const [goleadores, setGoleadores] = useState<Goleador[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
 
   const supabase = createClient()
 
   const categorias = ['Todos', 'Libre', 'Master', 'Femenino']
+  const medallas = ['🥇', '🥈', '🥉']
 
   const dispararConfeti = () => {
     confetti({
       particleCount: 100,
       spread: 70,
-      origin: { y: 0.6 }
+      origin: { y: 0.6 },
     })
   }
 
-  async function fetchGoleadores() {
+  async function fetchGoleadores(categoria = 'Todos') {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
@@ -35,43 +49,46 @@ export default function GoleadorPage() {
       `)
       .neq('posicion', 'PORTERO')
       .order('goles', { ascending: false })
-      .limit(5)
 
-    if (!error && data) {
-      setGoleadores(data)
+    if (error) {
+      console.error('Error cargando goleadores:', error)
+      return
     }
+
+    const goleadoresNormalizados: Goleador[] = (data || [])
+      .map((j: any) => ({
+        id: j.id,
+        nombre: j.nombre,
+        numero_camisola: j.numero_camisola,
+        goles: j.goles ?? 0,
+        equipos: Array.isArray(j.equipos) ? j.equipos[0] : j.equipos,
+        categorias: Array.isArray(j.categorias) ? j.categorias[0] : j.categorias,
+      }))
+      .filter((j) => categoria === 'Todos' || j.categorias?.nombre === categoria)
+      .slice(0, 5)
+
+    setGoleadores(goleadoresNormalizados)
   }
 
   useEffect(() => {
-    // Carga inicial
-    fetchGoleadores()
+    fetchGoleadores(categoriaActiva)
+  }, [categoriaActiva])
 
-    // Configuración del canal de tiempo real
+  useEffect(() => {
     const channel = supabase
       .channel('realtime:jugadores')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'jugadores',
-        },
-        () => {
-          // Al detectar cualquier cambio, volvemos a consultar la base de datos
-          fetchGoleadores()
-        }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jugadores' }, () => {
+        fetchGoleadores(categoriaActiva)
+      })
       .subscribe()
 
-    // Limpieza al desmontar el componente
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [categoriaActiva])
 
   return (
     <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28">
-
       <div className="flex justify-between items-center mb-6 mt-2">
         <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">
           Top 5 Goleadores
@@ -83,89 +100,69 @@ export default function GoleadorPage() {
           <button
             key={cat}
             onClick={() => setCategoriaActiva(cat)}
-            className={
-              categoriaActiva === cat
-                ? 'text-[#34D399] border-b-2 border-[#34D399]'
-                : 'hover:text-[#34D399]/70'
-            }
+            className={categoriaActiva === cat ? 'text-[#34D399] border-b-2 border-[#34D399]' : 'hover:text-[#34D399]/70'}
           >
             {cat}
           </button>
         ))}
       </div>
 
-      <div className="space-y-3">
-        {goleadores
-          .filter(
-            (p) =>
-              categoriaActiva === 'Todos' ||
-              p.categorias?.nombre === categoriaActiva
-          )
-          .map((jugador) => (
-            <div
-              key={jugador.id}
-              className="bg-[#111827] p-4 rounded-2xl border border-white/5 shadow-lg flex items-center"
-            >
-              <div className="flex flex-col items-center pr-4 border-r border-white/10">
-                <span className="text-[9px] uppercase font-bold text-zinc-400">
-                  CAMISOLA #
-                </span>
-
-                <span className="font-black text-2xl text-[#34D399] mt-1">
-                  {jugador.numero_camisola}
-                </span>
+      <div className="space-y-4">
+        {goleadores.map((jugador, index) => (
+          <div
+            key={jugador.id}
+            className={`p-4 rounded-2xl shadow-lg flex items-center transition-all border relative mt-6 ${
+              index === 0
+                ? 'bg-[#1a1b16] border-yellow-500/50'
+                : 'bg-[#111827] border-white/5'
+            }`}
+          >
+            {/* Medalla centrada arriba */}
+            {index < 3 && (
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-3xl">
+                {medallas[index]}
               </div>
+            )}
 
-              <div className="flex-1 pl-4">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-lg text-white">
-                    {jugador.nombre}
-                  </h3>
+            {/* Categoría en la esquina superior izquierda (estilo badge) */}
+            <span className="absolute top-2 left-3 text-[8px] bg-[#1E293B] text-[#34D399] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
+              {jugador.categorias?.nombre}
+            </span>
 
-                  <div className="flex flex-col items-end gap-1">
-                    {categoriaActiva === 'Todos' && (
-                      <span className="text-[8px] bg-[#1E293B] text-[#34D399] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                        {jugador.categorias?.nombre}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-sm text-zinc-400 mt-1">
-                  Equipo:{' '}
-                  <span className="text-white font-medium">
-                    {jugador.equipos?.nombre || 'Sin equipo'}
-                  </span>
-                </p>
-              </div>
-
-              <div className="ml-4 flex flex-col items-center border-l border-white/10 pl-4">
-                <span className="block text-2xl font-black text-white leading-none">
-                  {jugador.goles ?? 0}
-                </span>
-
-                <span className="text-[8px] text-[#34D399] uppercase tracking-widest font-bold mt-1 block mb-2">
-                  Goles
-                </span>
-
-                <button
-                  onClick={dispararConfeti}
-                  className="flex flex-col items-center hover:scale-110 transition-transform"
-                >
-                  <Heart
-                    size={16}
-                    className="text-zinc-500 hover:text-rose-500 transition-colors"
-                  />
-
-                  <span className="text-[10px] text-zinc-600 font-bold mt-0.5">
-                    0
-                  </span>
-                </button>
-              </div>
+            {/* Camisola */}
+            <div className="flex flex-col items-center pr-4 border-r border-white/10 mt-4">
+              <span className="text-[7px] uppercase font-bold text-zinc-500">CAMISOLA #</span>
+              <span className="font-black text-lg text-[#34D399]">
+                {jugador.numero_camisola}
+              </span>
             </div>
-          ))}
-      </div>
 
+            {/* Nombre y Equipo */}
+            <div className="flex-1 pl-4 mt-4">
+              <h3 className="font-bold text-lg text-white leading-tight">
+                {jugador.nombre}
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Equipo: <span className="text-white font-medium">{jugador.equipos?.nombre || 'Sin equipo'}</span>
+              </p>
+            </div>
+
+            {/* Goles y Corazón */}
+            <div className="flex flex-col items-center border-l border-white/10 pl-4 mt-4">
+              <span className="text-2xl font-black text-white leading-none">
+                {jugador.goles}
+              </span>
+              <span className="text-[8px] text-[#34D399] uppercase font-bold mb-1">
+                GOLES
+              </span>
+              <button onClick={dispararConfeti} className="hover:scale-110 transition-transform">
+                <Heart size={16} className="text-zinc-500" />
+                <span className="text-[9px] text-zinc-600 font-bold block text-center">0</span>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
       <Navbar />
     </main>
   )
