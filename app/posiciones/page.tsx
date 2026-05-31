@@ -1,25 +1,33 @@
-'use client'
+"use client";
 
-import Navbar from '../Navbar'
-
-export default function PosicionesPage() {
+export default function ArmAnimationPage() {
   return (
-    <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28">
-      
-      {/* Título de la sección */}
-      <div className="flex justify-between items-center mb-6 mt-2">
-        <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">
-          Tabla de Posiciones
-        </h1>
+    <div className="flex items-center justify-center min-h-screen bg-[#F48C3C]">
+      {/* Contenedor del brazo */}
+      <div className="relative">
+        <div 
+          className="arm-right"
+          style={{
+            backgroundColor: '#EAB08C',
+            borderLeft: '8px solid rgba(19, 36, 44, 0.1)',
+            borderRadius: '50px',
+            height: '180px',
+            width: '60px',
+            // El origen es la parte superior central
+            transformOrigin: '30px 30px',
+            // Aplicamos la animación
+            animation: 'swing 2s infinite ease-in-out'
+          }}
+        />
       </div>
 
-      {/* Aquí irá tu contenido de la tabla de posiciones */}
-      <div className="text-zinc-500 text-sm">
-        <p>Aquí aparecerá la información de las posiciones...</p>
-      </div>
-
-      {/* Menú inferior */}
-      <Navbar />
-    </main>
-  )
+      <style jsx global>{`
+        @keyframes swing {
+          0% { transform: rotate(0deg); }
+          50% { transform: rotate(45deg); }
+          100% { transform: rotate(0deg); }
+        }
+      `}</style>
+    </div>
+  );
 }
