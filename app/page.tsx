@@ -93,7 +93,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Título corregido sin el botón de sorteo */}
       <div className="flex justify-between items-center mb-6 mt-2">
         <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">MARCADOR WEB</h1>
       </div>
@@ -118,10 +117,10 @@ export default function Home() {
               <button 
                 onClick={() => toggleLike(p.id, p.likes)} 
                 disabled={likesLocales.includes(p.id)}
-                className={`flex items-center gap-1 text-[10px] font-bold ${likesLocales.includes(p.id) ? 'text-[#34D399]' : 'text-cyan-400'}`}
+                className={`flex flex-col items-center gap-0 ${likesLocales.includes(p.id) ? 'text-[#34D399]' : 'text-cyan-400'}`}
               >
-                <span>{p.likes || 0}</span>
-                <svg viewBox="0 0 24 24" fill={likesLocales.includes(p.id) ? "currentColor" : "none"} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                <svg viewBox="0 0 24 24" fill={likesLocales.includes(p.id) ? "currentColor" : "none"} stroke="currentColor" className="w-8 h-8" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                <span className="text-[10px] font-bold">{p.likes || 0}</span>
               </button>
             </div>
             
