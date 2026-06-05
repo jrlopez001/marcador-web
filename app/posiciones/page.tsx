@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { createClient } from '@/utils/supabase/client'
 import Navbar from '../Navbar'
 
-// Configuración de colores (igual)
-const colorMap: Record<string, { border: string; shadow: string; glow: string; tabColor: string; textColor: string }> = {
+const colorMap: Record<string, any> = {
   Libre: {
     border: 'border-blue-500/30',
     shadow: 'shadow-[0_0_20px_rgba(59,130,246,0.3),inset_0_0_10px_rgba(59,130,246,0.1)]',
@@ -37,8 +36,8 @@ interface EquipoPosicion {
   pts: number
   j: number
   g: number
-  e: number
   p: number
+  gf: number
 }
 
 export default function PosicionesPage() {
@@ -49,120 +48,127 @@ export default function PosicionesPage() {
 
   const supabase = createClient()
   const colors = colorMap[categoria]
+  const channelRef = useRef<any>(null)
+  const isSubscribedRef = useRef(false)
+
+  const fetchPosiciones = async (categoriaId: string) => {
+    try {
+      const { data, error: statsError } = await supabase
+        .from('equipos_categorias')
+        .select(`
+          equipo_id,
+          partidos_jugados,
+          ganados,
+          perdidos,
+          goles_favor,
+          puntos,
+          equipos ( nombre )
+        `)
+        .eq('categoria_id', categoriaId)
+
+      if (statsError) throw statsError
+
+      if (!data || data.length === 0) {
+        setEquipos([])
+        return
+      }
+
+      let equiposConStats = data.map((item: any) => ({
+        id: item.equipo_id,
+        nombre: item.equipos?.nombre || 'Sin nombre',
+        pts: item.puntos || 0,
+        j: item.partidos_jugados || 0,
+        g: item.ganados || 0,
+        p: item.perdidos || 0,
+        gf: item.goles_favor || 0,
+      }))
+
+      equiposConStats.sort((a, b) => {
+        if (a.pts !== b.pts) return b.pts - a.pts
+        return a.nombre.localeCompare(b.nombre)
+      })
+
+      const resultado = equiposConStats.map((eq, idx) => ({ pos: idx + 1, ...eq }))
+      setEquipos(resultado)
+    } catch (err: any) {
+      console.error(err)
+      throw err
+    }
+  }
 
   useEffect(() => {
-    const fetchPosiciones = async () => {
+    let isActive = true
+
+    const setup = async () => {
       setLoading(true)
       setError(null)
 
       try {
-        // 1. Obtener ID de la categoría seleccionada
-        const { data: categoriaData, error: catError } = await supabase
+        // Obtener ID de la categoría
+        const { data: catData, error: catErr } = await supabase
           .from('categorias')
           .select('id')
           .eq('nombre', categoria)
           .single()
 
-        if (catError || !categoriaData) {
-          throw new Error(`Categoría "${categoria}" no encontrada`)
-        }
-        const categoriaId = categoriaData.id
+        if (catErr || !catData) throw new Error(`Categoría "${categoria}" no encontrada`)
+        const categoriaId = catData.id
 
-        // 2. Obtener equipos a través de la tabla puente equipos_categorias
-        const { data: equiposPuente, error: puenteError } = await supabase
-          .from('equipos_categorias')
-          .select('equipo_id')
-          .eq('categoria_id', categoriaId)
+        // Cargar datos iniciales
+        if (isActive) await fetchPosiciones(categoriaId)
 
-        if (puenteError) throw puenteError
-
-        if (!equiposPuente || equiposPuente.length === 0) {
-          setEquipos([])
-          setLoading(false)
-          return
+        // --- Limpiar canal anterior si existe ---
+        if (channelRef.current) {
+          await supabase.removeChannel(channelRef.current)
+          channelRef.current = null
+          isSubscribedRef.current = false
         }
 
-        const equipoIds = equiposPuente.map(item => item.equipo_id)
-
-        // Obtener los datos completos de los equipos
-        const { data: equiposData, error: eqError } = await supabase
-          .from('equipos')
-          .select('id, nombre')
-          .in('id', equipoIds)
-
-        if (eqError) throw eqError
-        if (!equiposData || equiposData.length === 0) {
-          setEquipos([])
-          setLoading(false)
-          return
-        }
-
-        // 3. Obtener partidos finalizados de esta categoría
-        const { data: partidosData, error: partError } = await supabase
-          .from('partidos')
-          .select('equipo1_id, equipo2_id, goles_ep1, goles_ep2')
-          .eq('categoria_id', categoriaId)
-          .eq('estado', 'FINALIZADO')
-
-        if (partError) throw partError
-
-        // 4. Inicializar estadísticas
-        const stats: Record<string, { pts: number; j: number; g: number; e: number; p: number }> = {}
-        equiposData.forEach((eq) => {
-          stats[eq.id] = { pts: 0, j: 0, g: 0, e: 0, p: 0 }
-        })
-
-        // 5. Procesar cada partido
-        for (const partido of partidosData || []) {
-          const { equipo1_id, equipo2_id, goles_ep1, goles_ep2 } = partido
-
-          const procesar = (eqId: string, gf: number, gc: number) => {
-            if (!stats[eqId]) return
-            stats[eqId].j += 1
-            if (gf > gc) {
-              stats[eqId].g += 1
-              stats[eqId].pts += 3
-            } else if (gf === gc) {
-              stats[eqId].e += 1
-              stats[eqId].pts += 1
-            } else {
-              stats[eqId].p += 1
+        // --- Crear nuevo canal con los callbacks ANTES de suscribirse ---
+        const newChannel = supabase
+          .channel(`equipos-categoria-${categoriaId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'equipos_categorias',
+              filter: `categoria_id=eq.${categoriaId}`,
+            },
+            () => {
+              if (isActive && categoriaId === catData.id) {
+                fetchPosiciones(categoriaId)
+              }
             }
+          )
+
+        // Ahora suscribirse
+        newChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            isSubscribedRef.current = true
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Error en canal Realtime')
           }
-
-          procesar(equipo1_id, goles_ep1, goles_ep2)
-          procesar(equipo2_id, goles_ep2, goles_ep1)
-        }
-
-        // 6. Construir array con estadísticas
-        let equiposConStats = equiposData.map((eq) => ({
-          id: eq.id,
-          nombre: eq.nombre,
-          ...stats[eq.id],
-        }))
-
-        // Ordenar por puntos descendente
-        equiposConStats.sort((a, b) => {
-          if (a.pts !== b.pts) return b.pts - a.pts
-          return a.nombre.localeCompare(b.nombre)
         })
 
-        // Asignar posición
-        const resultado: EquipoPosicion[] = equiposConStats.map((eq, idx) => ({
-          pos: idx + 1,
-          ...eq,
-        }))
-
-        setEquipos(resultado)
+        channelRef.current = newChannel
       } catch (err: any) {
-        console.error(err)
-        setError(err.message || 'Error al cargar las posiciones')
+        if (isActive) setError(err.message)
       } finally {
-        setLoading(false)
+        if (isActive) setLoading(false)
       }
     }
 
-    fetchPosiciones()
+    setup()
+
+    return () => {
+      isActive = false
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+        isSubscribedRef.current = false
+      }
+    }
   }, [categoria, supabase])
 
   return (
@@ -191,15 +197,7 @@ export default function PosicionesPage() {
         ))}
       </div>
 
-      <div className="relative flex flex-col md:flex-row gap-4 items-start">
-        <div className="bg-[#111827] border border-zinc-800 p-3 rounded-lg text-[10px] text-zinc-400 w-full md:w-32 shadow-lg">
-          <p><span className="font-bold text-white">Pts</span> - Puntos</p>
-          <p><span className="font-bold text-white">J</span> - Juegos</p>
-          <p><span className="font-bold text-white">G</span> - Ganados</p>
-          <p><span className="font-bold text-white">E</span> - Empates</p>
-          <p><span className="font-bold text-white">P</span> - Perdido</p>
-        </div>
-
+      <div className="relative flex flex-col gap-4 items-start">
         <div className={`flex-1 overflow-x-auto bg-[#111827] rounded-xl border ${colors.border} ${colors.shadow} electric-glow`}>
           {loading ? (
             <div className="p-8 text-center text-zinc-400">Cargando posiciones...</div>
@@ -213,10 +211,10 @@ export default function PosicionesPage() {
                 <tr className="text-zinc-400 border-b border-zinc-800">
                   <th className="p-3 text-left">EQUIPOS</th>
                   <th className={`p-3 text-center ${colors.textColor}`}>Pts</th>
-                  <th className="p-3 text-center">J</th>
-                  <th className="p-3 text-center">G</th>
-                  <th className="p-3 text-center">E</th>
-                  <th className="p-3 text-center">P</th>
+                  <th className="p-3 text-center">Jugados</th>
+                  <th className="p-3 text-center">Ganados</th>
+                  <th className="p-3 text-center">Perdidos</th>
+                  <th className="p-3 text-center">Goles</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,8 +232,8 @@ export default function PosicionesPage() {
                     <td className={`p-3 text-center font-bold ${colors.textColor}`}>{eq.pts}</td>
                     <td className="p-3 text-center">{eq.j}</td>
                     <td className="p-3 text-center">{eq.g}</td>
-                    <td className="p-3 text-center">{eq.e}</td>
                     <td className="p-3 text-center">{eq.p}</td>
+                    <td className="p-3 text-center font-mono">{eq.gf}</td>
                   </tr>
                 ))}
               </tbody>
