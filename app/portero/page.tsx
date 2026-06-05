@@ -2,15 +2,17 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
-import { Heart } from 'lucide-react'
+import { Heart, X } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import Navbar from '../Navbar'
 
 interface Portero {
   id: number
   nombre: string
+  posicion: string
   numero_camisola: number
   goles_recibidos: number
+  partidos_jugados: number
   equipos?: {
     nombre: string
   }
@@ -22,11 +24,11 @@ interface Portero {
 export default function PorteroPage() {
   const [porteros, setPorteros] = useState<Portero[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
-  
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedPlayer, setSelectedPlayer] = useState<Portero | null>(null)
+
   const hayDatos = porteros.length > 0
-
   const supabase = createClient()
-
   const categorias = ['Todos', 'Libre', 'Master', 'Femenino']
 
   const dispararConfeti = () => {
@@ -37,14 +39,26 @@ export default function PorteroPage() {
     })
   }
 
+  const openModal = (portero: Portero) => {
+    setSelectedPlayer(portero)
+    setIsModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+    setSelectedPlayer(null)
+  }
+
   async function fetchPorteros(categoria = 'Todos') {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
         id,
         nombre,
+        posicion,
         numero_camisola,
         goles_recibidos,
+        partidos_jugados,
         equipos(nombre),
         categorias(nombre)
       `)
@@ -60,8 +74,10 @@ export default function PorteroPage() {
       .map((p: any) => ({
         id: p.id,
         nombre: p.nombre,
+        posicion: p.posicion,
         numero_camisola: p.numero_camisola,
         goles_recibidos: p.goles_recibidos ?? 0,
+        partidos_jugados: p.partidos_jugados ?? 0,
         equipos: Array.isArray(p.equipos) ? p.equipos[0] : p.equipos,
         categorias: Array.isArray(p.categorias) ? p.categorias[0] : p.categorias,
       }))
@@ -108,13 +124,8 @@ export default function PorteroPage() {
         ))}
       </div>
 
-      {!hayDatos ? (
-         <div className="flex items-center justify-center mt-20 text-center px-6">
-          <p className="text-zinc-400 italic text-sm leading-relaxed border border-white/5 p-8 rounded-2xl bg-[#111827]">
-            El desafío es grande, pero su convicción es mayor: el arco ha dejado de ser una opción para el rival.
-          </p>
-        </div>
-      ) : (
+      {/* Solo se muestra la lista si hay datos */}
+      {hayDatos && (
         <div className="space-y-4">
           {porteros.map((portero, index) => (
             <div
@@ -137,7 +148,10 @@ export default function PorteroPage() {
               </div>
 
               <div className="flex-1 pl-4 mt-4">
-                <h3 className="font-bold text-lg text-white leading-tight">
+                <h3
+                  className="font-bold text-lg text-white leading-tight cursor-pointer hover:text-[#34D399] transition-colors"
+                  onClick={() => openModal(portero)}
+                >
                   {portero.nombre}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
@@ -168,6 +182,58 @@ export default function PorteroPage() {
           ))}
         </div>
       )}
+
+      {/* MODAL - VENTANA EMERGENTE PARA PORTEROS */}
+      {isModalOpen && selectedPlayer && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-[#1E293B] rounded-2xl max-w-sm w-full p-6 shadow-xl border border-white/10 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeModal}
+              className="absolute top-3 right-3 text-zinc-400 hover:text-white transition"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-2xl font-bold text-[#34D399] mb-4 pr-6">
+              {selectedPlayer.nombre}
+            </h2>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Posición</span>
+                <span className="font-medium text-white">{selectedPlayer.posicion || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Número de camisola</span>
+                <span className="font-medium text-white">{selectedPlayer.numero_camisola}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Categoría</span>
+                <span className="font-medium text-white">{selectedPlayer.categorias?.nombre || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Equipo</span>
+                <span className="font-medium text-white">{selectedPlayer.equipos?.nombre || 'Sin equipo'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Goles recibidos</span>
+                <span className="font-medium text-white">{selectedPlayer.goles_recibidos}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Juegos totales</span>
+                <span className="font-medium text-white">{selectedPlayer.partidos_jugados}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Navbar />
     </main>
   )

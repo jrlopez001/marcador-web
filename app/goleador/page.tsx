@@ -2,15 +2,17 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
-import { Heart } from 'lucide-react'
+import { Heart, X } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import Navbar from '../Navbar'
 
 interface Goleador {
   id: number
   nombre: string
+  posicion: string
   numero_camisola: number
   goles: number
+  partidos_jugados: number
   equipos?: { nombre: string }
   categorias?: { nombre: string }
 }
@@ -18,10 +20,10 @@ interface Goleador {
 export default function GoleadorPage() {
   const [goleadores, setGoleadores] = useState<Goleador[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
-  
-  // Usamos la longitud de la lista para determinar si mostrar el mensaje o la tabla
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedPlayer, setSelectedPlayer] = useState<Goleador | null>(null)
+
   const hayDatos = goleadores.length > 0
-  
   const supabase = createClient()
   const categorias = ['Todos', 'Libre', 'Master', 'Femenino']
 
@@ -29,15 +31,27 @@ export default function GoleadorPage() {
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
   }
 
+  const openModal = (jugador: Goleador) => {
+    setSelectedPlayer(jugador)
+    setIsModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+    setSelectedPlayer(null)
+  }
+
   async function fetchGoleadores(categoria = 'Todos') {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
-        id, 
-        nombre, 
-        numero_camisola, 
-        goles, 
-        equipos(nombre), 
+        id,
+        nombre,
+        posicion,
+        numero_camisola,
+        goles,
+        partidos_jugados,
+        equipos(nombre),
         categorias(nombre)
       `)
       .neq('posicion', 'PORTERO')
@@ -51,8 +65,10 @@ export default function GoleadorPage() {
     const todosLosJugadores: Goleador[] = (data || []).map((j: any) => ({
       id: j.id,
       nombre: j.nombre,
+      posicion: j.posicion,
       numero_camisola: j.numero_camisola,
       goles: j.goles ?? 0,
+      partidos_jugados: j.partidos_jugados ?? 0,
       equipos: Array.isArray(j.equipos) ? j.equipos[0] : j.equipos,
       categorias: Array.isArray(j.categorias) ? j.categorias[0] : j.categorias,
     }))
@@ -60,7 +76,7 @@ export default function GoleadorPage() {
     const filtrados = todosLosJugadores.filter(
       (j) => (categoria === 'Todos' || j.categorias?.nombre === categoria) && j.goles > 0
     )
-    
+
     setGoleadores(filtrados.slice(0, 5))
   }
 
@@ -101,13 +117,7 @@ export default function GoleadorPage() {
         ))}
       </div>
 
-      {!hayDatos ? (
-        <div className="flex items-center justify-center mt-20 text-center px-6">
-          <p className="text-zinc-400 italic text-sm leading-relaxed border border-white/5 p-8 rounded-2xl bg-[#111827]">
-            "La cuenta regresiva ha comenzado: el arco espera al nuevo protagonista."
-          </p>
-        </div>
-      ) : (
+      {hayDatos && (
         <div className="space-y-4">
           {goleadores.map((jugador, index) => (
             <div
@@ -130,7 +140,10 @@ export default function GoleadorPage() {
               </div>
 
               <div className="flex-1 pl-4 mt-4 min-w-0">
-                <h3 className="font-bold text-lg text-white leading-tight truncate">
+                <h3
+                  className="font-bold text-lg text-white leading-tight truncate cursor-pointer hover:text-[#34D399] transition-colors"
+                  onClick={() => openModal(jugador)}
+                >
                   {jugador.nombre}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5 truncate">
@@ -145,9 +158,9 @@ export default function GoleadorPage() {
                 <span className="text-[8px] text-[#34D399] uppercase font-bold mb-2">
                   GOLES
                 </span>
-                
-                <button 
-                  onClick={dispararConfeti} 
+
+                <button
+                  onClick={dispararConfeti}
                   className="flex flex-col items-center hover:scale-110 transition-transform"
                 >
                   <Heart size={28} className="text-zinc-500" />
@@ -158,6 +171,58 @@ export default function GoleadorPage() {
           ))}
         </div>
       )}
+
+      {/* MODAL - VENTANA EMERGENTE */}
+      {isModalOpen && selectedPlayer && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-[#1E293B] rounded-2xl max-w-sm w-full p-6 shadow-xl border border-white/10 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeModal}
+              className="absolute top-3 right-3 text-zinc-400 hover:text-white transition"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-2xl font-bold text-[#34D399] mb-4 pr-6">
+              {selectedPlayer.nombre}
+            </h2>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Posición</span>
+                <span className="font-medium text-white">{selectedPlayer.posicion || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Número de camisola</span>
+                <span className="font-medium text-white">{selectedPlayer.numero_camisola}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Categoría</span>
+                <span className="font-medium text-white">{selectedPlayer.categorias?.nombre || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Equipo</span>
+                <span className="font-medium text-white">{selectedPlayer.equipos?.nombre || 'Sin equipo'}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span className="text-zinc-400">Goles totales</span>
+                <span className="font-medium text-white">{selectedPlayer.goles}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Juegos totales</span>
+                <span className="font-medium text-white">{selectedPlayer.partidos_jugados}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Navbar />
     </main>
   )
