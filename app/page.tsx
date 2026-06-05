@@ -15,13 +15,12 @@ export default function Home() {
   const marcadorAnterior = useRef<any>({})
   const supabase = createClient()
 
-  // CARGAR LIKES
   useEffect(() => {
     const guardados = JSON.parse(localStorage.getItem('likes_partidos') || '[]')
     setLikesLocales(guardados)
   }, [])
 
-  // PEDIR PERMISO DE NOTIFICACIONES
+  // NUEVO: PEDIR PERMISO DE NOTIFICACIONES
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'granted') {
       Notification.requestPermission()
@@ -30,11 +29,9 @@ export default function Home() {
 
   async function toggleLike(partidoId: string, likesActuales: number) {
     const likesGuardados = JSON.parse(localStorage.getItem('likes_partidos') || '[]')
-
     if (likesGuardados.includes(partidoId)) return
 
     const nuevoTotal = likesActuales + 1
-
     const { error } = await supabase
       .from('partidos')
       .update({ likes: nuevoTotal })
@@ -42,18 +39,9 @@ export default function Home() {
 
     if (!error) {
       const nuevosLikes = [...likesGuardados, partidoId]
-
       localStorage.setItem('likes_partidos', JSON.stringify(nuevosLikes))
-
       setLikesLocales(nuevosLikes)
-
-      setPartidos((prev) =>
-        prev.map((p) =>
-          p.id === partidoId
-            ? { ...p, likes: nuevoTotal }
-            : p
-        )
-      )
+      setPartidos((prev) => prev.map((p) => p.id === partidoId ? { ...p, likes: nuevoTotal } : p))
     }
   }
 
@@ -61,15 +49,9 @@ export default function Home() {
     const { data } = await supabase
       .from('partidos')
       .select(`
-        id,
-        likes,
-        goles_ep1,
-        goles_ep2,
-        estado,
-        periodo_actual,
-        evento,
-        categorias (nombre),
-        equipo1:equipo1_id (nombre),
+        id, likes, goles_ep1, goles_ep2, estado, periodo_actual, evento,
+        categorias (nombre), 
+        equipo1:equipo1_id (nombre), 
         equipo2:equipo2_id (nombre),
         goles (
           jugadores (nombre, numero_camisola),
@@ -83,38 +65,30 @@ export default function Home() {
       data.forEach((p) => {
         const anterior = marcadorAnterior.current[p.id]
 
-        if (
-          anterior &&
-          (
-            p.goles_ep1 > anterior.goles_ep1 ||
-            p.goles_ep2 > anterior.goles_ep2
-          )
-        ) {
-          const ultimoGol =
-            p.goles && p.goles.length > 0
-              ? p.goles[p.goles.length - 1]
-              : null
+        if (anterior && (p.goles_ep1 > anterior.goles_ep1 || p.goles_ep2 > anterior.goles_ep2)) {
+
+          const ultimoGol = p.goles && p.goles.length > 0
+            ? p.goles[p.goles.length - 1]
+            : null
 
           setMostrarGol(true)
 
+          // NUEVO: VIBRACIÓN
           if (navigator.vibrate) {
             navigator.vibrate([300, 100, 300])
           }
 
           if (ultimoGol) {
-            const jugador =
-              ultimoGol.jugadores &&
-              Array.isArray(ultimoGol.jugadores)
-                ? ultimoGol.jugadores[0]
-                : ultimoGol.jugadores
 
-            const equipo =
-              ultimoGol.equipos &&
-              Array.isArray(ultimoGol.equipos)
-                ? ultimoGol.equipos[0]
-                : ultimoGol.equipos
+            // TU LÓGICA ORIGINAL
+            const jugador = ultimoGol.jugadores && Array.isArray(ultimoGol.jugadores)
+              ? ultimoGol.jugadores[0]
+              : ultimoGol.jugadores
 
-            // GUARDAR INFO DEL GOL
+            const equipo = ultimoGol.equipos && Array.isArray(ultimoGol.equipos)
+              ? ultimoGol.equipos[0]
+              : ultimoGol.equipos
+
             setGolInfo((prev: any) => ({
               ...prev,
               [p.id]: {
@@ -124,11 +98,8 @@ export default function Home() {
               }
             }))
 
-            // NOTIFICACIÓN
-            if (
-              'Notification' in window &&
-              Notification.permission === 'granted'
-            ) {
+            // NUEVO: NOTIFICACIÓN
+            if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('⚽ ¡GOOOOL!', {
                 body: `${jugador?.nombre || 'Jugador'} anotó para ${equipo?.nombre || 'Equipo'}`,
                 icon: '/icon-192.png'
@@ -138,12 +109,11 @@ export default function Home() {
 
           setTimeout(() => setMostrarGol(false), 1300)
 
-          setTimeout(() => {
+          setTimeout(() =>
             setGolInfo((prev: any) => ({
               ...prev,
               [p.id]: null
-            }))
-          }, 15000)
+            })), 15000)
         }
 
         marcadorAnterior.current[p.id] = {
@@ -193,7 +163,6 @@ export default function Home() {
       {mostrarGol && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
           <div className="absolute inset-0 bg-green-500 animate-pulse opacity-20"></div>
-
           <h1 className="text-[100px] font-black text-green-400 uppercase animate-pulse">
             GOOOOL
           </h1>
@@ -240,10 +209,9 @@ export default function Home() {
 
       <div className="space-y-3">
         {partidos
-          .filter(
-            (p) =>
-              categoriaActiva === 'Todos' ||
-              p.categorias?.nombre === categoriaActiva
+          .filter((p) =>
+            categoriaActiva === 'Todos' ||
+            p.categorias?.nombre === categoriaActiva
           )
           .map((p) => (
             <div
@@ -257,8 +225,7 @@ export default function Home() {
 
               {golInfo[p.id] && (
                 <div className="mb-2 text-[10px] text-green-400 font-bold text-center border-b border-green-500/20 pb-1">
-                  ⚽ ¡GOL DE: {golInfo[p.id].nombre} (#
-                  {golInfo[p.id].numero}) - {golInfo[p.id].equipo}!
+                  ⚽ ¡GOL DE: {golInfo[p.id].nombre} (#{golInfo[p.id].numero}) - {golInfo[p.id].equipo}!
                 </div>
               )}
 
@@ -312,13 +279,10 @@ export default function Home() {
                 </div>
               </div>
 
-              <div
-                className={`text-[9px] text-center font-bold uppercase mt-1 ${getTiempoColor(
-                  p.periodo_actual
-                )}`}
-              >
+              <div className={`text-[9px] text-center font-bold uppercase mt-1 ${getTiempoColor(p.periodo_actual)}`}>
                 {p.periodo_actual || 'Pendiente'}
               </div>
+
             </div>
           ))}
       </div>
