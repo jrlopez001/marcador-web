@@ -224,14 +224,80 @@ export default function Home() {
   const [mostrarGol, setMostrarGol] = useState(false)
   const [golInfo, setGolInfo] = useState<any>({})
   const [tipoAnimacion, setTipoAnimacion] = useState<string>('')
+  
+  // Estado para silenciar/activar sonido
+  const [isMuted, setIsMuted] = useState(false)
 
   const golTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const golInfoTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
   const marcadorAnterior = useRef<any>({})
+  
+  // Referencias para la Web Audio API
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioBufferRef = useRef<AudioBuffer | null>(null)
 
   const animaciones = ['balon', 'tornado', 'explosion', 'lluvia']
 
   const getRandomAnimacion = () => animaciones[Math.floor(Math.random() * animaciones.length)]
+
+  // Carga e inicialización robusta mediante Web Audio API
+  useEffect(() => {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    
+    const ctx = new AudioContextClass()
+    audioContextRef.current = ctx
+
+    fetch('/gol.mp3')
+      .then(response => response.arrayBuffer())
+      .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
+      .then(decodedBuffer => {
+        audioBufferRef.current = decodedBuffer
+      })
+      .catch(err => console.error("Error al cargar el búfer de audio:", err))
+
+    const activarContextoAudio = () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().then(() => {
+          window.removeEventListener('click', activarContextoAudio)
+          window.removeEventListener('touchstart', activarContextoAudio)
+        })
+      } else {
+        window.removeEventListener('click', activarContextoAudio)
+        window.removeEventListener('touchstart', activarContextoAudio)
+      }
+    }
+
+    window.addEventListener('click', activarContextoAudio)
+    window.addEventListener('touchstart', activarContextoAudio)
+
+    return () => {
+      window.removeEventListener('click', activarContextoAudio)
+      window.removeEventListener('touchstart', activarContextoAudio)
+    }
+  }, [])
+
+  // Función interna para reproducir considerando el estado de mute
+  const reproducirGolAudio = useCallback(() => {
+    if (!audioContextRef.current || !audioBufferRef.current) return
+
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume()
+    }
+
+    const source = audioContextRef.current.createBufferSource()
+    source.buffer = audioBufferRef.current
+
+    // Añadimos un nodo de volumen (GainNode) para manejar el Mute de forma nativa
+    const gainNode = audioContextRef.current.createGain()
+    // Si isMuted es true, el volumen baja a 0, si es false, se mantiene en 1
+    gainNode.gain.setValueAtTime(isMuted ? 0 : 1, audioContextRef.current.currentTime)
+
+    source.connect(gainNode)
+    gainNode.connect(audioContextRef.current.destination)
+    
+    source.start(0)
+  }, [isMuted])
 
   const fetchPartidos = useCallback(async () => {
     const { data } = await supabase
@@ -306,6 +372,9 @@ export default function Home() {
             setTipoAnimacion(randomAnim)
             setMostrarGol(true)
 
+            // EJECUTAR REPRODUCCIÓN BINARIA DE AUDIO
+            reproducirGolAudio()
+
             // Info del gol
             if (partidoActualizado.ultimo_gol_jugador && partidoActualizado.ultimo_gol_equipo) {
               const infoGol = {
@@ -363,7 +432,7 @@ export default function Home() {
       if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
       Object.values(golInfoTimeoutRef.current).forEach(clearTimeout)
     }
-  }, [fetchPartidos, obtenerUltimoGol])
+  }, [fetchPartidos, obtenerUltimoGol, reproducirGolAudio])
 
   return (
     <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28 relative overflow-hidden">
@@ -387,9 +456,26 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Resto de la interfaz */}
+      {/* Cabecera con título y botón de Mute */}
       <div className="flex justify-between items-center mb-6 mt-2">
         <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">MARCADOR WEB</h1>
+        
+        {/* Botón interactivo de Mute / Unmute */}
+        <button 
+          onClick={() => setIsMuted(!isMuted)} 
+          className="flex items-center justify-center bg-[#1E293B] hover:bg-slate-700/80 text-white w-9 h-9 rounded-full transition-colors duration-200 outline-none"
+          title={isMuted ? "Activar Sonido" : "Silenciar Sonido"}
+        >
+          {isMuted ? (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-red-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+            </svg>
+          )}
+        </button>
       </div>
 
       <div className="flex gap-4 mb-6">
