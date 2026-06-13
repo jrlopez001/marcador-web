@@ -36,7 +36,6 @@ interface EquipoPosicion {
   pts: number
   j: number
   g: number
-  e: number
   p: number
   gf: number
 }
@@ -52,90 +51,52 @@ export default function PosicionesPage() {
 
   const colors = colorMap[categoria]
   const channelRef = useRef<any>(null)
+  const isSubscribedRef = useRef(false)
   const debounceRef = useRef<NodeJS.Timeout>()
 
-  const getCategoriaId = async (nombreCategoria: string) => {
-    const { data, error } = await supabase
-      .from('categorias')
-      .select('id')
-      .eq('nombre', nombreCategoria)
-      .single()
-    if (error || !data) throw new Error(`Categoría "${nombreCategoria}" no encontrada`)
-    return data.id
-  }
-
   const fetchPosiciones = async (categoriaId: string) => {
-    // Obtener equipos
-    const { data: equiposCat, error: eqError } = await supabase
-      .from('equipos_categorias')
-      .select(`equipo_id, equipos ( nombre )`)
-      .eq('categoria_id', categoriaId)
+    try {
+      const { data, error: statsError } = await supabase
+        .from('equipos_categorias')
+        .select(`
+          equipo_id,
+          partidos_jugados,
+          ganados,
+          perdidos,
+          goles_favor,
+          puntos,
+          equipos ( nombre )
+        `)
+        .eq('categoria_id', categoriaId)
 
-    if (eqError) throw eqError
-    if (!equiposCat || equiposCat.length === 0) {
-      setEquipos([])
-      return
+      if (statsError) throw statsError
+
+      if (!data || data.length === 0) {
+        setEquipos([])
+        return
+      }
+
+      let equiposConStats = data.map((item: any) => ({
+        id: item.equipo_id,
+        nombre: item.equipos?.nombre || 'Sin nombre',
+        pts: item.puntos || 0,
+        j: item.partidos_jugados || 0,
+        g: item.ganados || 0,
+        p: item.perdidos || 0,
+        gf: item.goles_favor || 0,
+      }))
+
+      equiposConStats.sort((a, b) => {
+        if (a.pts !== b.pts) return b.pts - a.pts
+        return a.nombre.localeCompare(b.nombre)
+      })
+
+      const resultado = equiposConStats.map((eq, idx) => ({ pos: idx + 1, ...eq }))
+      setEquipos(resultado)
+    } catch (err: any) {
+      console.error(err)
+      throw err
     }
-
-    // Obtener partidos (sin filtro de estado para depurar)
-    const { data: partidos, error: pError } = await supabase
-      .from('partidos')
-      .select('equipo1_id, equipo2_id, goles_ep1, goles_ep2')
-      .eq('categoria_id', categoriaId)
-
-    if (pError) throw pError
-
-    const statsMap = new Map<string, { j: number; g: number; e: number; p: number; gf: number }>()
-    equiposCat.forEach((ec: any) => {
-      statsMap.set(ec.equipo_id, { j: 0, g: 0, e: 0, p: 0, gf: 0 })
-    })
-
-    partidos?.forEach((partido: any) => {
-      const localId = partido.equipo1_id
-      const visitId = partido.equipo2_id
-      const gLocal = partido.goles_ep1
-      const gVisit = partido.goles_ep2
-
-      const localStats = statsMap.get(localId)
-      if (localStats) {
-        localStats.j++
-        localStats.gf += gLocal
-        if (gLocal > gVisit) localStats.g++
-        else if (gLocal === gVisit) localStats.e++
-        else localStats.p++
-      }
-
-      const visitStats = statsMap.get(visitId)
-      if (visitStats) {
-        visitStats.j++
-        visitStats.gf += gVisit
-        if (gVisit > gLocal) visitStats.g++
-        else if (gVisit === gLocal) visitStats.e++
-        else visitStats.p++
-      }
-    })
-
-    let equiposConStats = equiposCat.map((ec: any) => {
-      const stats = statsMap.get(ec.equipo_id)!
-      const pts = stats.g * 3 + stats.e * 1
-      return {
-        id: ec.equipo_id,
-        nombre: ec.equipos.nombre,
-        pts,
-        j: stats.j,
-        g: stats.g,
-        e: stats.e,
-        p: stats.p,
-        gf: stats.gf,
-      }
-    })
-
-    equiposConStats.sort((a, b) => {
-      if (a.pts !== b.pts) return b.pts - a.pts
-      return a.nombre.localeCompare(b.nombre)
-    })
-    const resultado = equiposConStats.map((eq, idx) => ({ pos: idx + 1, ...eq }))
-    setEquipos(resultado)
   }
 
   const refreshData = (categoriaId: string) => {
@@ -151,32 +112,50 @@ export default function PosicionesPage() {
     const setup = async () => {
       setLoading(true)
       setError(null)
+
       try {
-        const categoriaId = await getCategoriaId(categoria)
+        const { data: catData, error: catErr } = await supabase
+          .from('categorias')
+          .select('id')
+          .eq('nombre', categoria)
+          .single()
+
+        if (catErr || !catData) throw new Error(`Categoría "${categoria}" no encontrada`)
+        const categoriaId = catData.id
+
         if (isActive) await fetchPosiciones(categoriaId)
 
         if (channelRef.current) {
           await supabase.removeChannel(channelRef.current)
           channelRef.current = null
+          isSubscribedRef.current = false
         }
 
         const newChannel = supabase
-          .channel(`partidos-categoria-${categoriaId}`)
+          .channel(`equipos-categoria-${categoriaId}`)
           .on(
             'postgres_changes',
             {
               event: '*',
               schema: 'public',
-              table: 'partidos',
+              table: 'equipos_categorias',
               filter: `categoria_id=eq.${categoriaId}`,
             },
             () => {
-              if (isActive) refreshData(categoriaId)
+              if (isActive && categoriaId === catData.id) {
+                refreshData(categoriaId)
+              }
             }
           )
+
         newChannel.subscribe((status) => {
-          if (status === 'CHANNEL_ERROR') console.error('Error en canal Realtime')
+          if (status === 'SUBSCRIBED') {
+            isSubscribedRef.current = true
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Error en canal Realtime')
+          }
         })
+
         channelRef.current = newChannel
       } catch (err: any) {
         if (isActive) setError(err.message)
@@ -193,6 +172,7 @@ export default function PosicionesPage() {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
+        isSubscribedRef.current = false
       }
     }
   }, [categoria])
@@ -224,14 +204,14 @@ export default function PosicionesPage() {
       </div>
 
       <div className="relative flex flex-col gap-4 items-start">
-        <div className={`flex-1 w-full bg-[#111827] rounded-xl border ${colors.border} ${colors.shadow}`}>
+        <div className={`flex-1 w-full bg-[#111827] rounded-xl border ${colors.border} ${colors.shadow} pulse-opacity`}>
           {loading ? (
             <div className="p-8 text-center text-zinc-400">Cargando posiciones...</div>
           ) : error ? (
             <div className="p-8 text-center text-red-400">{error}</div>
           ) : equipos.length === 0 ? (
             <div className="p-8 text-center text-zinc-400">
-              No hay equipos en esta categoría o aún no hay partidos.
+              No hay equipos en esta categoría o aún no hay partidos finalizados.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -242,7 +222,6 @@ export default function PosicionesPage() {
                     <th className={`p-3 text-center ${colors.textColor}`}>PTS</th>
                     <th className="p-3 text-center">PJ</th>
                     <th className="p-3 text-center">PG</th>
-                    <th className="p-3 text-center">PE</th>
                     <th className="p-3 text-center">PP</th>
                     <th className="p-3 text-center">GF</th>
                   </tr>
@@ -264,7 +243,6 @@ export default function PosicionesPage() {
                       <td className={`p-3 text-center font-bold ${colors.textColor}`}>{eq.pts}</td>
                       <td className="p-3 text-center">{eq.j}</td>
                       <td className="p-3 text-center">{eq.g}</td>
-                      <td className="p-3 text-center">{eq.e}</td>
                       <td className="p-3 text-center">{eq.p}</td>
                       <td className="p-3 text-center font-mono">{eq.gf}</td>
                     </tr>
@@ -276,13 +254,14 @@ export default function PosicionesPage() {
         </div>
       </div>
 
+      {/* Leyenda con colores dinámicos según categoría */}
       <div
         className="mt-6 flex flex-wrap justify-center gap-4 text-xs bg-[#111827]/50 p-3 rounded-xl border"
         style={{ borderColor: colors.tabColor }}
       >
         <div className="flex items-center gap-1">
           <span className={`font-bold ${colors.textColor}`}>PTS</span>
-          <span className="text-zinc-400">Puntos (3-1-0)</span>
+          <span className="text-zinc-400">Puntos</span>
         </div>
         <div className="flex items-center gap-1">
           <span className={`font-bold ${colors.textColor}`}>PJ</span>
@@ -291,10 +270,6 @@ export default function PosicionesPage() {
         <div className="flex items-center gap-1">
           <span className={`font-bold ${colors.textColor}`}>PG</span>
           <span className="text-zinc-400">Partidos Ganados</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className={`font-bold ${colors.textColor}`}>PE</span>
-          <span className="text-zinc-400">Partidos Empatados</span>
         </div>
         <div className="flex items-center gap-1">
           <span className={`font-bold ${colors.textColor}`}>PP</span>
@@ -306,12 +281,22 @@ export default function PosicionesPage() {
         </div>
       </div>
 
-      <div className="mt-2 text-center text-xs text-zinc-400 bg-[#111827]/30 p-2 rounded-lg">
-        <span className="font-bold" style={{ color: colors.tabColor }}>
-          Puntuación:
-        </span>{' '}
-        Ganar = 3 pts | Empatar = 1 pt | Perder = 0 pts
-      </div>
+      <style jsx global>{`
+        .pulse-opacity {
+          animation: pulse-opacity 2s infinite ease-in-out;
+          will-change: transform, opacity;
+        }
+        @keyframes pulse-opacity {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.95;
+          }
+          50% {
+            transform: scale(1.005);
+            opacity: 1;
+          }
+        }
+      `}</style>
 
       <Navbar />
     </main>

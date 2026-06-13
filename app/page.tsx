@@ -1,12 +1,139 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback, memo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '../utils/supabase/client'
 import Navbar from './Navbar'
 
 const supabase = createClient()
 
-const PartidoCard = memo(({ partido, golInfo, toggleLike, likesLocales }: any) => {
+// ---------------------------------------------
+// 1. BALÓN GIGANTE (con rebote y escala)
+// ---------------------------------------------
+const BalonGigante = () => (
+  <motion.div
+    initial={{ x: '-100vw', rotate: -720, scale: 0.5 }}
+    animate={{
+      x: 0,
+      rotate: 0,
+      scale: [0.5, 1.2, 1],
+      transition: { duration: 0.8, times: [0, 0.6, 1] }
+    }}
+    exit={{ scale: 2, opacity: 0 }}
+    transition={{ duration: 0.5 }}
+    className="text-[180px] absolute z-20"
+  >
+    ⚽
+  </motion.div>
+)
+
+// ---------------------------------------------
+// 2. TERREMOTO + LLAMAS VERDES EN BORDES
+// ---------------------------------------------
+const TerremotoLlamas = () => {
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 z-10"
+        animate={{
+          x: [0, -20, 20, -20, 20, -10, 10, 0],
+          y: [0, -10, 10, -5, 5, 0],
+        }}
+        transition={{ duration: 0.3, repeat: 5, repeatType: 'loop' }}
+      />
+      <div className="fixed inset-0 pointer-events-none z-20">
+        <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-green-500/70 to-transparent animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-green-500/70 to-transparent animate-pulse" />
+        <div className="absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-green-500/70 to-transparent animate-pulse" />
+        <div className="absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-green-500/70 to-transparent animate-pulse" />
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------
+// 3. EXPLOSIÓN DE CHISPAS VERDES
+// ---------------------------------------------
+const ExplosionChispas = () => {
+  const chispas = Array.from({ length: 60 }).map((_, i) => ({
+    id: i,
+    angle: Math.random() * 360,
+    distance: 100 + Math.random() * 200,
+    size: 4 + Math.random() * 8,
+    delay: Math.random() * 0.2
+  }))
+
+  return (
+    <>
+      <motion.div
+        initial={{ scale: 0, opacity: 1 }}
+        animate={{ scale: 15, opacity: 0 }}
+        transition={{ duration: 0.6 }}
+        className="absolute rounded-full bg-green-500 w-32 h-32 z-10"
+      />
+      {chispas.map((chispa) => (
+        <motion.div
+          key={chispa.id}
+          initial={{ scale: 0, x: 0, y: 0 }}
+          animate={{
+            scale: [0, 1, 0],
+            x: Math.cos(chispa.angle * Math.PI / 180) * chispa.distance,
+            y: Math.sin(chispa.angle * Math.PI / 180) * chispa.distance,
+          }}
+          transition={{ duration: 0.8, delay: chispa.delay }}
+          className="absolute rounded-full bg-green-400"
+          style={{ width: chispa.size, height: chispa.size }}
+        />
+      ))}
+    </>
+  )
+}
+
+// ---------------------------------------------
+// 4. LLUVIA DE BALONES (con rotación y tamaños)
+// ---------------------------------------------
+const LluviaBalones = () => {
+  const [windowHeight, setWindowHeight] = useState(0)
+  const [windowWidth, setWindowWidth] = useState(0)
+
+  useEffect(() => {
+    setWindowHeight(window.innerHeight)
+    setWindowWidth(window.innerWidth)
+  }, [])
+
+  const balones = Array.from({ length: 40 }).map((_, i) => ({
+    id: i,
+    left: Math.random() * windowWidth,
+    size: 20 + Math.random() * 40,
+    rotate: Math.random() * 360,
+    duration: 1 + Math.random() * 1.5,
+    delay: Math.random() * 1.5,
+  }))
+
+  if (windowHeight === 0) return null
+
+  return (
+    <>
+      {balones.map((b) => (
+        <motion.div
+          key={b.id}
+          initial={{ y: -100, rotate: b.rotate, opacity: 1 }}
+          animate={{ y: windowHeight + 100, rotate: b.rotate + 360 }}
+          transition={{ duration: b.duration, delay: b.delay }}
+          className="fixed pointer-events-none z-20"
+          style={{ left: b.left, fontSize: b.size }}
+        >
+          ⚽
+        </motion.div>
+      ))}
+    </>
+  )
+}
+
+// ---------------------------------------------
+// Tarjeta de partido (sin corazones)
+// ---------------------------------------------
+const PartidoCard = memo(({ partido, golInfo }: any) => {
   const getTiempoColor = (t: string) => {
     const str = t?.toLowerCase() || ''
     if (str.includes('1er')) return 'text-emerald-400'
@@ -14,8 +141,6 @@ const PartidoCard = memo(({ partido, golInfo, toggleLike, likesLocales }: any) =
     if (str.includes('finalizado')) return 'text-red-500'
     return 'text-zinc-500'
   }
-
-  const estaLiked = likesLocales.includes(partido.id)
 
   return (
     <div className={`p-3 rounded-xl border transition-all duration-500 ${golInfo ? 'bg-green-900/20 border-green-500/50' : 'bg-[#111827] border-slate-800'}`}>
@@ -26,12 +151,6 @@ const PartidoCard = memo(({ partido, golInfo, toggleLike, likesLocales }: any) =
       )}
       <div className="flex justify-between items-center mb-1">
         <span className="text-[9px] uppercase text-zinc-500 font-bold tracking-wider">{partido.categorias?.nombre}</span>
-        <button onClick={() => toggleLike(partido.id, partido.likes)} disabled={estaLiked} className={`flex flex-col items-center gap-0 ${estaLiked ? 'text-[#34D399]' : 'text-cyan-400'}`}>
-          <svg viewBox="0 0 24 24" fill={estaLiked ? "currentColor" : "none"} stroke="currentColor" className="w-8 h-8" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-          <span className="text-[10px] font-bold">{partido.likes || 0}</span>
-        </button>
       </div>
       <div className="flex items-center justify-between gap-2">
         <div className="w-[40%] text-right font-bold text-sm truncate">{partido.equipo1?.nombre}</div>
@@ -48,46 +167,30 @@ const PartidoCard = memo(({ partido, golInfo, toggleLike, likesLocales }: any) =
 })
 PartidoCard.displayName = 'PartidoCard'
 
+// ---------------------------------------------
+// Componente principal
+// ---------------------------------------------
 export default function Home() {
   const [partidos, setPartidos] = useState<any[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
   const [eventoActivo, setEventoActivo] = useState('VIERNES')
   const [mostrarGol, setMostrarGol] = useState(false)
   const [golInfo, setGolInfo] = useState<any>({})
-  const [likesLocales, setLikesLocales] = useState<string[]>([])
+  const [tipoAnimacion, setTipoAnimacion] = useState<string>('')
 
   const golTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const golInfoTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
   const marcadorAnterior = useRef<any>({})
 
-  useEffect(() => {
-    const guardados = JSON.parse(localStorage.getItem('likes_partidos') || '[]')
-    setLikesLocales(guardados)
-  }, [])
+  const animaciones = ['balon', 'terremoto', 'explosion', 'lluvia']
 
-  const toggleLike = useCallback(async (partidoId: string, likesActuales: number) => {
-    const likesGuardados = JSON.parse(localStorage.getItem('likes_partidos') || '[]')
-    if (likesGuardados.includes(partidoId)) return
-
-    const nuevoTotal = likesActuales + 1
-    const { error } = await supabase
-      .from('partidos')
-      .update({ likes: nuevoTotal })
-      .eq('id', partidoId)
-
-    if (!error) {
-      const nuevosLikes = [...likesGuardados, partidoId]
-      localStorage.setItem('likes_partidos', JSON.stringify(nuevosLikes))
-      setLikesLocales(nuevosLikes)
-      setPartidos((prev) => prev.map((p) => p.id === partidoId ? { ...p, likes: nuevoTotal } : p))
-    }
-  }, [])
+  const getRandomAnimacion = () => animaciones[Math.floor(Math.random() * animaciones.length)]
 
   const fetchPartidos = useCallback(async () => {
     const { data } = await supabase
       .from('partidos')
       .select(`
-        id, likes, goles_ep1, goles_ep2, estado, periodo_actual, evento,
+        id, goles_ep1, goles_ep2, estado, periodo_actual, evento,
         categorias (nombre), 
         equipo1:equipo1_id (nombre), 
         equipo2:equipo2_id (nombre)
@@ -139,8 +242,8 @@ export default function Home() {
 
     const channel = supabase
       .channel('realtime')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'partidos' }, 
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'partidos' },
         async (payload) => {
           const partidoActualizado = payload.new
           const partidoId = partidoActualizado.id
@@ -152,16 +255,18 @@ export default function Home() {
           )
 
           if (huboGol) {
+            const randomAnim = getRandomAnimacion()
+            setTipoAnimacion(randomAnim)
+            setMostrarGol(true)
+
+            // Info del gol
             if (partidoActualizado.ultimo_gol_jugador && partidoActualizado.ultimo_gol_equipo) {
               const infoGol = {
                 nombre: partidoActualizado.ultimo_gol_jugador,
                 numero: partidoActualizado.ultimo_gol_numero || '?',
                 equipo: partidoActualizado.ultimo_gol_equipo,
               }
-              setMostrarGol(true)
               setGolInfo((prev: any) => ({ ...prev, [partidoId]: infoGol }))
-              if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
-              golTimeoutRef.current = setTimeout(() => setMostrarGol(false), 1300)
               if (golInfoTimeoutRef.current[partidoId]) clearTimeout(golInfoTimeoutRef.current[partidoId])
               golInfoTimeoutRef.current[partidoId] = setTimeout(() => {
                 setGolInfo((prev: any) => ({ ...prev, [partidoId]: null }))
@@ -169,16 +274,19 @@ export default function Home() {
             } else {
               const infoGol = await obtenerUltimoGol(partidoId)
               if (infoGol) {
-                setMostrarGol(true)
                 setGolInfo((prev: any) => ({ ...prev, [partidoId]: infoGol }))
-                if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
-                golTimeoutRef.current = setTimeout(() => setMostrarGol(false), 1300)
                 if (golInfoTimeoutRef.current[partidoId]) clearTimeout(golInfoTimeoutRef.current[partidoId])
                 golInfoTimeoutRef.current[partidoId] = setTimeout(() => {
                   setGolInfo((prev: any) => ({ ...prev, [partidoId]: null }))
                 }, 15000)
               }
             }
+
+            if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
+            golTimeoutRef.current = setTimeout(() => {
+              setMostrarGol(false)
+              setTipoAnimacion('')
+            }, 5000)
           }
 
           setPartidos((prev) =>
@@ -193,12 +301,12 @@ export default function Home() {
           }
         }
       )
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'partidos' }, 
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'partidos' },
         () => fetchPartidos()
       )
-      .on('postgres_changes', 
-        { event: 'DELETE', schema: 'public', table: 'partidos' }, 
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'partidos' },
         () => fetchPartidos()
       )
       .subscribe()
@@ -211,14 +319,28 @@ export default function Home() {
   }, [fetchPartidos, obtenerUltimoGol])
 
   return (
-    <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28">
-      {mostrarGol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
-          <div className="absolute inset-0 bg-green-500 animate-pulse opacity-20"></div>
-          <h1 className="text-[100px] font-black text-green-400 uppercase animate-pulse">GOOOOL</h1>
-        </div>
-      )}
+    <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28 relative overflow-hidden">
+      <AnimatePresence>
+        {mostrarGol && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 overflow-hidden">
+            {/* Fondo pulsante común */}
+            <div className="absolute inset-0 bg-green-500 animate-pulse opacity-20" />
 
+            {/* Animaciones según tipo */}
+            {tipoAnimacion === 'balon' && <BalonGigante />}
+            {tipoAnimacion === 'terremoto' && <TerremotoLlamas />}
+            {tipoAnimacion === 'explosion' && <ExplosionChispas />}
+            {tipoAnimacion === 'lluvia' && <LluviaBalones />}
+
+            {/* Texto central Gool, siempre visible */}
+            <h1 className="text-[100px] font-black text-green-400 capitalize animate-pulse relative z-30">
+              Gool
+            </h1>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Resto de la interfaz */}
       <div className="flex justify-between items-center mb-6 mt-2">
         <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">MARCADOR WEB</h1>
       </div>
@@ -237,13 +359,7 @@ export default function Home() {
 
       <div className="space-y-3">
         {partidos.filter((p) => categoriaActiva === 'Todos' || p.categorias?.nombre === categoriaActiva).map((p) => (
-          <PartidoCard
-            key={p.id}
-            partido={p}
-            golInfo={golInfo[p.id]}
-            toggleLike={toggleLike}
-            likesLocales={likesLocales}
-          />
+          <PartidoCard key={p.id} partido={p} golInfo={golInfo[p.id]} />
         ))}
       </div>
       <Navbar />
