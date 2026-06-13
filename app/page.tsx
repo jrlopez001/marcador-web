@@ -7,9 +7,9 @@ import Navbar from './Navbar'
 
 const supabase = createClient()
 
-// ---------------------------------------------
-// 1. BALÓN GIGANTE (con rebote y escala)
-// ---------------------------------------------
+// =====================================================
+// 1. BALÓN GIGANTE (no se modifica, está perfecto)
+// =====================================================
 const BalonGigante = () => (
   <motion.div
     initial={{ x: '-100vw', rotate: -720, scale: 0.5 }}
@@ -27,60 +27,107 @@ const BalonGigante = () => (
   </motion.div>
 )
 
-// ---------------------------------------------
-// 2. TERREMOTO + LLAMAS VERDES EN BORDES
-// ---------------------------------------------
-const TerremotoLlamas = () => {
+// =====================================================
+// 2. NUEVA ANIMACIÓN: TORNADO DE ENERGÍA VERDE
+//    (Reemplaza al terremoto)
+// =====================================================
+const TornadoEnergia = () => {
+  // Generamos muchas partículas que giran en espiral
+  const particulas = Array.from({ length: 80 }).map((_, i) => {
+    const anguloInicial = Math.random() * 360
+    const radioInicial = 20 + Math.random() * 80
+    const velocidadAngular = 300 + Math.random() * 200 // grados/segundo
+    const velocidadRadial = 150 + Math.random() * 100 // pixeles/segundo
+    const tamaño = 4 + Math.random() * 12
+    const retraso = Math.random() * 0.5
+    return { id: i, anguloInicial, radioInicial, velocidadAngular, velocidadRadial, tamaño, retraso }
+  })
+
   return (
     <>
+      {/* Círculo central pulsante */}
       <motion.div
-        className="fixed inset-0 z-10"
-        animate={{
-          x: [0, -20, 20, -20, 20, -10, 10, 0],
-          y: [0, -10, 10, -5, 5, 0],
-        }}
-        transition={{ duration: 0.3, repeat: 5, repeatType: 'loop' }}
+        initial={{ scale: 0, opacity: 0.9 }}
+        animate={{ scale: 8, opacity: 0 }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+        className="absolute rounded-full bg-green-500 w-40 h-40 blur-xl"
       />
-      <div className="fixed inset-0 pointer-events-none z-20">
-        <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-green-500/70 to-transparent animate-pulse" />
-        <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-green-500/70 to-transparent animate-pulse" />
-        <div className="absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-green-500/70 to-transparent animate-pulse" />
-        <div className="absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-green-500/70 to-transparent animate-pulse" />
-      </div>
+      {/* Anillos concéntricos que se expanden */}
+      {[0, 1, 2, 3].map((i) => (
+        <motion.div
+          key={i}
+          initial={{ scale: 0, opacity: 0.8 }}
+          animate={{ scale: 12, opacity: 0 }}
+          transition={{ duration: 1.5, delay: i * 0.1 }}
+          className="absolute rounded-full border-4 border-green-400 w-20 h-20"
+          style={{ borderWidth: 6 - i }}
+        />
+      ))}
+      {/* Partículas en espiral */}
+      {particulas.map((p) => {
+        // Calculamos la trayectoria en tiempo real con animate personalizado
+        // Para simplificar, usamos keyframes complejos o una versión con animate en x/y
+        // Hacemos que giren alrededor del centro expandiéndose
+        const anguloFinal = p.anguloInicial + 720 // dos vueltas
+        const radioFinal = p.radioInicial + 400
+        const xFinal = Math.cos(anguloFinal * Math.PI / 180) * radioFinal
+        const yFinal = Math.sin(anguloFinal * Math.PI / 180) * radioFinal
+        const xInicial = Math.cos(p.anguloInicial * Math.PI / 180) * p.radioInicial
+        const yInicial = Math.sin(p.anguloInicial * Math.PI / 180) * p.radioInicial
+        return (
+          <motion.div
+            key={p.id}
+            initial={{ x: xInicial, y: yInicial, scale: 0, opacity: 1 }}
+            animate={{ x: xFinal, y: yFinal, scale: 1, opacity: 0 }}
+            transition={{ duration: 1.2, delay: p.retraso, ease: "easeOut" }}
+            className="absolute rounded-full bg-green-300 shadow-lg"
+            style={{ width: p.tamaño, height: p.tamaño, boxShadow: '0 0 10px #4ade80' }}
+          />
+        )
+      })}
+      {/* Destello final tipo estrella */}
+      <motion.div
+        initial={{ scale: 0, opacity: 1 }}
+        animate={{ scale: 15, opacity: 0 }}
+        transition={{ duration: 0.8, delay: 0.6 }}
+        className="absolute rounded-full bg-white w-10 h-10"
+      />
     </>
   )
 }
 
-// ---------------------------------------------
-// 3. EXPLOSIÓN DE CHISPAS VERDES
-// ---------------------------------------------
+// =====================================================
+// 3. EXPLOSIÓN DE CHISPAS (más larga y cubre más pantalla)
+// =====================================================
 const ExplosionChispas = () => {
-  const chispas = Array.from({ length: 60 }).map((_, i) => ({
+  // Aumentamos a 120 chispas y mayor distancia
+  const chispas = Array.from({ length: 120 }).map((_, i) => ({
     id: i,
     angle: Math.random() * 360,
-    distance: 100 + Math.random() * 200,
-    size: 4 + Math.random() * 8,
-    delay: Math.random() * 0.2
+    distance: 250 + Math.random() * 400, // hasta 650px de distancia
+    size: 3 + Math.random() * 12,
+    delay: Math.random() * 0.4,
+    duration: 1.2 + Math.random() * 0.8 // duración más larga (1.2 a 2 seg)
   }))
 
   return (
     <>
       <motion.div
         initial={{ scale: 0, opacity: 1 }}
-        animate={{ scale: 15, opacity: 0 }}
-        transition={{ duration: 0.6 }}
-        className="absolute rounded-full bg-green-500 w-32 h-32 z-10"
+        animate={{ scale: 18, opacity: 0 }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+        className="absolute rounded-full bg-green-500 w-40 h-40 z-10"
       />
       {chispas.map((chispa) => (
         <motion.div
           key={chispa.id}
-          initial={{ scale: 0, x: 0, y: 0 }}
+          initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
           animate={{
-            scale: [0, 1, 0],
+            scale: [0, 1, 0.5, 0],
             x: Math.cos(chispa.angle * Math.PI / 180) * chispa.distance,
             y: Math.sin(chispa.angle * Math.PI / 180) * chispa.distance,
           }}
-          transition={{ duration: 0.8, delay: chispa.delay }}
+          transition={{ duration: chispa.duration, delay: chispa.delay }}
           className="absolute rounded-full bg-green-400"
           style={{ width: chispa.size, height: chispa.size }}
         />
@@ -89,9 +136,9 @@ const ExplosionChispas = () => {
   )
 }
 
-// ---------------------------------------------
-// 4. LLUVIA DE BALONES (con rotación y tamaños)
-// ---------------------------------------------
+// =====================================================
+// 4. LLUVIA DE BALONES (se deja igual, está perfecta)
+// =====================================================
 const LluviaBalones = () => {
   const [windowHeight, setWindowHeight] = useState(0)
   const [windowWidth, setWindowWidth] = useState(0)
@@ -130,9 +177,9 @@ const LluviaBalones = () => {
   )
 }
 
-// ---------------------------------------------
+// =====================================================
 // Tarjeta de partido (sin corazones)
-// ---------------------------------------------
+// =====================================================
 const PartidoCard = memo(({ partido, golInfo }: any) => {
   const getTiempoColor = (t: string) => {
     const str = t?.toLowerCase() || ''
@@ -167,9 +214,9 @@ const PartidoCard = memo(({ partido, golInfo }: any) => {
 })
 PartidoCard.displayName = 'PartidoCard'
 
-// ---------------------------------------------
+// =====================================================
 // Componente principal
-// ---------------------------------------------
+// =====================================================
 export default function Home() {
   const [partidos, setPartidos] = useState<any[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
@@ -182,7 +229,7 @@ export default function Home() {
   const golInfoTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
   const marcadorAnterior = useRef<any>({})
 
-  const animaciones = ['balon', 'terremoto', 'explosion', 'lluvia']
+  const animaciones = ['balon', 'tornado', 'explosion', 'lluvia']
 
   const getRandomAnimacion = () => animaciones[Math.floor(Math.random() * animaciones.length)]
 
@@ -328,7 +375,7 @@ export default function Home() {
 
             {/* Animaciones según tipo */}
             {tipoAnimacion === 'balon' && <BalonGigante />}
-            {tipoAnimacion === 'terremoto' && <TerremotoLlamas />}
+            {tipoAnimacion === 'tornado' && <TornadoEnergia />}
             {tipoAnimacion === 'explosion' && <ExplosionChispas />}
             {tipoAnimacion === 'lluvia' && <LluviaBalones />}
 
