@@ -30,29 +30,22 @@ function usePorterosFetch() {
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log('📌 Fetching porteros...');
       const { data, error } = await supabase
         .from('jugadores')
         .select(`id, nombre, posicion, numero_camisola, goles_recibidos, partidos_jugados, equipos(nombre), categorias(nombre)`)
-        .eq('posicion', 'PORTERO');
-        // 🔥 Eliminado el filtro .gt('partidos_jugados', 0) para mostrar todos
+        .eq('posicion', 'PORTERO')
+        .gt('partidos_jugados', 0);
 
-      if (error) {
-        console.error('❌ Error fetching porteros:', error);
-        setLoading(false);
-        return;
+      if (!error && data) {
+        const parsed = data.map((p: any) => ({
+          ...p,
+          goles_recibidos: p.goles_recibidos ?? 0,
+          partidos_jugados: p.partidos_jugados ?? 0,
+          equipos: Array.isArray(p.equipos) ? p.equipos[0] : p.equipos,
+          categorias: Array.isArray(p.categorias) ? p.categorias[0] : p.categorias,
+        })) as Portero[];
+        setAllPorteros(parsed);
       }
-
-      console.log('✅ Porteros obtenidos:', data?.length);
-      const parsed = data?.map((p: any) => ({
-        ...p,
-        goles_recibidos: p.goles_recibidos ?? 0,
-        partidos_jugados: p.partidos_jugados ?? 0,
-        equipos: Array.isArray(p.equipos) ? p.equipos[0] : p.equipos,
-        categorias: Array.isArray(p.categorias) ? p.categorias[0] : p.categorias,
-      })) as Portero[];
-
-      setAllPorteros(parsed);
       setLoading(false);
     };
     fetchData();
@@ -61,9 +54,6 @@ function usePorterosFetch() {
   return { allPorteros, loading };
 }
 
-// ------------------------------------------------------------
-// Suscripción en tiempo real con recarga completa del registro
-// ------------------------------------------------------------
 function usePorterosSubscription(
   onInsert: (record: any) => void,
   onUpdate: (record: any) => void,
@@ -72,59 +62,14 @@ function usePorterosSubscription(
   useEffect(() => {
     const channel = supabase
       .channel('porteros-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jugadores' }, (payload) => {
-        // Solo procesamos si es PORTERO
-        if (payload.new?.posicion === 'PORTERO') {
-          // Re-obtenemos el registro completo con relaciones
-          supabase
-            .from('jugadores')
-            .select(`id, nombre, posicion, numero_camisola, goles_recibidos, partidos_jugados, equipos(nombre), categorias(nombre)`)
-            .eq('id', payload.new.id)
-            .single()
-            .then(({ data, error }) => {
-              if (!error && data) {
-                const parsed = {
-                  ...data,
-                  goles_recibidos: data.goles_recibidos ?? 0,
-                  partidos_jugados: data.partidos_jugados ?? 0,
-                  equipos: Array.isArray(data.equipos) ? data.equipos[0] : data.equipos,
-                  categorias: Array.isArray(data.categorias) ? data.categorias[0] : data.categorias,
-                };
-                onInsert(parsed);
-              }
-            });
-        }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jugadores', filter: 'posicion=eq.PORTERO' }, (payload) => {
+        if (payload.new) onInsert(payload.new);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jugadores' }, (payload) => {
-        if (payload.new?.posicion === 'PORTERO') {
-          supabase
-            .from('jugadores')
-            .select(`id, nombre, posicion, numero_camisola, goles_recibidos, partidos_jugados, equipos(nombre), categorias(nombre)`)
-            .eq('id', payload.new.id)
-            .single()
-            .then(({ data, error }) => {
-              if (!error && data) {
-                const parsed = {
-                  ...data,
-                  goles_recibidos: data.goles_recibidos ?? 0,
-                  partidos_jugados: data.partidos_jugados ?? 0,
-                  equipos: Array.isArray(data.equipos) ? data.equipos[0] : data.equipos,
-                  categorias: Array.isArray(data.categorias) ? data.categorias[0] : data.categorias,
-                };
-                onUpdate(parsed);
-              }
-            });
-        } else {
-          // Si ya no es PORTERO, lo eliminamos de la lista
-          if (payload.old?.posicion === 'PORTERO') {
-            onDelete(payload.old);
-          }
-        }
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jugadores', filter: 'posicion=eq.PORTERO' }, (payload) => {
+        if (payload.new) onUpdate(payload.new);
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'jugadores' }, (payload) => {
-        if (payload.old?.posicion === 'PORTERO') {
-          onDelete(payload.old);
-        }
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'jugadores', filter: 'posicion=eq.PORTERO' }, (payload) => {
+        if (payload.old) onDelete(payload.old);
       })
       .subscribe();
 
@@ -142,9 +87,18 @@ function usePorterosRealtime() {
 
   const handleInsert = useCallback((newRecord: any) => {
     setAllPorteros((prev) => {
-      if (!prev.some(p => p.id === newRecord.id)) {
-        console.log('🟢 Insertando portero:', newRecord.nombre);
-        return [...prev, newRecord];
+      const newPortero: Portero = {
+        id: newRecord.id,
+        nombre: newRecord.nombre,
+        posicion: newRecord.posicion,
+        numero_camisola: newRecord.numero_camisola,
+        goles_recibidos: newRecord.goles_recibidos ?? 0,
+        partidos_jugados: newRecord.partidos_jugados ?? 0,
+        equipos: undefined,
+        categorias: undefined,
+      };
+      if (newPortero.partidos_jugados > 0 && !prev.some(p => p.id === newPortero.id)) {
+        return [...prev, newPortero];
       }
       return prev;
     });
@@ -152,20 +106,23 @@ function usePorterosRealtime() {
 
   const handleUpdate = useCallback((updatedRecord: any) => {
     setAllPorteros((prev) => {
-      const index = prev.findIndex(p => p.id === updatedRecord.id);
-      if (index === -1) return prev;
-      console.log('🔄 Actualizando portero:', updatedRecord.nombre);
-      const newList = [...prev];
-      newList[index] = updatedRecord;
-      return newList;
+      const existing = prev.find(p => p.id === updatedRecord.id);
+      if (!existing) return prev;
+      const updatedPortero: Portero = {
+        ...existing,
+        goles_recibidos: updatedRecord.goles_recibidos ?? existing.goles_recibidos,
+        partidos_jugados: updatedRecord.partidos_jugados ?? existing.partidos_jugados,
+      };
+      if (updatedPortero.partidos_jugados > 0) {
+        return prev.map(p => p.id === updatedPortero.id ? updatedPortero : p);
+      } else {
+        return prev.filter(p => p.id !== updatedPortero.id);
+      }
     });
   }, []);
 
   const handleDelete = useCallback((oldRecord: any) => {
-    setAllPorteros(prev => {
-      console.log('🗑️ Eliminando portero:', oldRecord.nombre);
-      return prev.filter(p => p.id !== oldRecord.id);
-    });
+    setAllPorteros(prev => prev.filter(p => p.id !== oldRecord.id));
   }, []);
 
   usePorterosSubscription(handleInsert, handleUpdate, handleDelete);
@@ -174,23 +131,19 @@ function usePorterosRealtime() {
 }
 
 // ------------------------------------------------------------
-// Ranking con ordenamiento estable
+// Ranking sin mutación (toSorted)
 // ------------------------------------------------------------
 function usePorterosRanking(allPorteros: Portero[], categoriaActiva: string) {
   return useMemo(() => {
     const filtrados = categoriaActiva === 'Todos'
       ? allPorteros
       : allPorteros.filter(p => p.categorias?.nombre === categoriaActiva);
-
-    // Ordenar por goles_recibidos (menor a mayor) y limitar a 5
-    return [...filtrados]
-      .sort((a, b) => (a.goles_recibidos ?? 0) - (b.goles_recibidos ?? 0))
-      .slice(0, 5);
+    return filtrados.toSorted((a, b) => a.goles_recibidos - b.goles_recibidos).slice(0, 5);
   }, [allPorteros, categoriaActiva]);
 }
 
 // ------------------------------------------------------------
-// Componentes visuales (sin cambios)
+// Componentes visuales
 // ------------------------------------------------------------
 const CategoriasTabs = memo(({ activa, onChange }: { activa: string; onChange: (cat: string) => void }) => (
   <div className="text-zinc-500 font-bold mb-6 flex gap-6 overflow-x-auto pb-2 scrollbar-hide">
@@ -207,6 +160,9 @@ const CategoriasTabs = memo(({ activa, onChange }: { activa: string; onChange: (
 ));
 CategoriasTabs.displayName = 'CategoriasTabs';
 
+// ------------------------------------------------------------
+// PlayerCard actualizado según tu especificación
+// ------------------------------------------------------------
 const PlayerCard = memo(({ jugador, onOpenModal, onConfetti }: {
   jugador: Portero;
   onOpenModal: (j: Portero) => void;
@@ -220,6 +176,7 @@ const PlayerCard = memo(({ jugador, onOpenModal, onConfetti }: {
     className="group p-4 rounded-2xl bg-[#111827] border border-white/5 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer flex justify-between items-center"
     onClick={() => onOpenModal(jugador)}
   >
+    {/* Columna Izquierda: Información Principal */}
     <div className="flex-1">
       <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
         CAMISOLA # <span className="text-[#34D399] text-lg">{jugador.numero_camisola}</span>
@@ -230,8 +187,10 @@ const PlayerCard = memo(({ jugador, onOpenModal, onConfetti }: {
         {jugador.categorias?.nombre || 'Sin categoría'}
       </div>
     </div>
+    
+    {/* Columna Derecha: Goles y Acción */}
     <div className="flex flex-col items-center border-l border-white/10 pl-4">
-      <span className="font-black text-2xl">{jugador.goles_recibidos ?? 0}</span>
+      <span className="font-black text-2xl">{jugador.goles_recibidos}</span>
       <button
         onClick={(e) => { e.stopPropagation(); onConfetti(e); }}
         className="mt-2 text-2xl hover:scale-125 transition-transform"
@@ -244,6 +203,9 @@ const PlayerCard = memo(({ jugador, onOpenModal, onConfetti }: {
 ), (prev, next) => prev.jugador.id === next.jugador.id && prev.jugador.goles_recibidos === next.jugador.goles_recibidos);
 PlayerCard.displayName = 'PlayerCard';
 
+// ------------------------------------------------------------
+// Modal (sin cambios)
+// ------------------------------------------------------------
 const PlayerModal = memo(({ player, onClose }: { player: Portero | null; onClose: () => void }) => {
   if (!player) return null;
 
@@ -280,11 +242,11 @@ const PlayerModal = memo(({ player, onClose }: { player: Portero | null; onClose
           </div>
           <div className="flex justify-between border-b border-white/10 pb-2">
             <span className="text-zinc-400">Goles recibidos</span>
-            <span className="font-medium text-white">{player.goles_recibidos ?? 0}</span>
+            <span className="font-medium text-white">{player.goles_recibidos}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-400">Juegos totales</span>
-            <span className="font-medium text-white">{player.partidos_jugados ?? 0}</span>
+            <span className="font-medium text-white">{player.partidos_jugados}</span>
           </div>
         </div>
       </motion.div>
