@@ -225,32 +225,8 @@ export default function Home() {
   const [golInfo, setGolInfo] = useState<any>({})
   const [tipoAnimacion, setTipoAnimacion] = useState<string>('')
   
-  // NUEVO: estado para recordar qué partido provocó el gol que se está animando
-  const [golPartidoIdActual, setGolPartidoIdActual] = useState<string | null>(null)
-
-  // NUEVO: estado para el tema (oscuro/claro) con persistencia en localStorage
-  const [isDark, setIsDark] = useState(true) // por defecto oscuro
-
-  // Cargar preferencia de tema desde localStorage al montar
-  useEffect(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored === 'light') setIsDark(false)
-    else if (stored === 'dark') setIsDark(true)
-  }, [])
-
-  // Guardar preferencia y aplicar clase al html
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }, [isDark])
-
-  // Estado para silenciar/activar sonido (inicia en mute = true)
-  const [isMuted, setIsMuted] = useState(true)
+  // Estado para silenciar/activar sonido
+  const [isMuted, setIsMuted] = useState(false)
 
   const golTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const golInfoTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
@@ -395,8 +371,6 @@ export default function Home() {
             const randomAnim = getRandomAnimacion()
             setTipoAnimacion(randomAnim)
             setMostrarGol(true)
-            // Guardamos el id del partido que marcó el gol para mostrarlo en la animación
-            setGolPartidoIdActual(partidoId)
 
             // EJECUTAR REPRODUCCIÓN BINARIA DE AUDIO
             reproducirGolAudio()
@@ -428,8 +402,6 @@ export default function Home() {
             golTimeoutRef.current = setTimeout(() => {
               setMostrarGol(false)
               setTipoAnimacion('')
-              // Limpiamos el id del partido actual al terminar la animación
-              setGolPartidoIdActual(null)
             }, 5000)
           }
 
@@ -462,13 +434,8 @@ export default function Home() {
     }
   }, [fetchPartidos, obtenerUltimoGol, reproducirGolAudio])
 
-  // Obtenemos la información del gol que se está mostrando en la animación
-  const infoGolActual = golPartidoIdActual ? golInfo[golPartidoIdActual] : null
-
   return (
-    <main className={`min-h-screen p-4 font-sans pb-28 relative overflow-hidden transition-colors duration-300 ${
-      isDark ? 'bg-[#0B1120] text-white' : 'bg-gray-100 text-gray-900'
-    }`}>
+    <main className="min-h-screen bg-[#0B1120] text-white p-4 font-sans pb-28 relative overflow-hidden">
       <AnimatePresence>
         {mostrarGol && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 overflow-hidden">
@@ -481,90 +448,45 @@ export default function Home() {
             {tipoAnimacion === 'explosion' && <ExplosionChispas />}
             {tipoAnimacion === 'lluvia' && <LluviaBalones />}
 
-            {/* Contenido central: Gool + nombre del goleador */}
-            <div className="relative z-30 flex flex-col items-center justify-center">
-              <h1 className="text-[100px] font-black text-green-400 capitalize animate-pulse">
-                Gool
-              </h1>
-              {infoGolActual && (
-                <div className="text-center text-white mt-4">
-                  <p className="text-3xl md:text-5xl font-bold text-green-300">
-                    ¡{infoGolActual.nombre}!
-                  </p>
-                  <p className="text-lg md:text-2xl text-green-200/80">
-                    #{infoGolActual.numero} - {infoGolActual.equipo}
-                  </p>
-                </div>
-              )}
-            </div>
+            {/* Texto central Gool, siempre visible */}
+            <h1 className="text-[100px] font-black text-green-400 capitalize animate-pulse relative z-30">
+              Gool
+            </h1>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Cabecera con título y botones de control */}
+      {/* Cabecera con título y botón de Mute */}
       <div className="flex justify-between items-center mb-6 mt-2">
-        <h1 className={`font-black tracking-[0.2em] text-[15px] uppercase ${
-          isDark ? 'text-[#34D399]' : 'text-emerald-700'
-        }`}>
-          MARCADOR WEB
-        </h1>
+        <h1 className="text-[#34D399] font-black tracking-[0.2em] text-[15px] opacity-80 uppercase">MARCADOR WEB</h1>
         
-        <div className="flex gap-2">
-          {/* Botón de tema (claro/oscuro) */}
-          <button
-            onClick={() => setIsDark(!isDark)}
-            className="flex items-center justify-center bg-[#1E293B] hover:bg-slate-700/80 text-white w-9 h-9 rounded-full transition-colors duration-200 outline-none"
-            title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-          >
-            {isDark ? (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-yellow-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-indigo-300">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-              </svg>
-            )}
-          </button>
-
-          {/* Botón de mute (inicia deshabilitado) */}
-          <button 
-            onClick={() => setIsMuted(!isMuted)} 
-            className="flex items-center justify-center bg-[#1E293B] hover:bg-slate-700/80 text-white w-9 h-9 rounded-full transition-colors duration-200 outline-none"
-            title={isMuted ? "Activar Sonido" : "Silenciar Sonido"}
-          >
-            {isMuted ? (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-red-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-              </svg>
-            )}
-          </button>
-        </div>
+        {/* Botón interactivo de Mute / Unmute */}
+        <button 
+          onClick={() => setIsMuted(!isMuted)} 
+          className="flex items-center justify-center bg-[#1E293B] hover:bg-slate-700/80 text-white w-9 h-9 rounded-full transition-colors duration-200 outline-none"
+          title={isMuted ? "Activar Sonido" : "Silenciar Sonido"}
+        >
+          {isMuted ? (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-red-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+            </svg>
+          )}
+        </button>
       </div>
 
       <div className="flex gap-4 mb-6">
         {['VIERNES', 'SABADO'].map((e) => (
-          <button key={e} onClick={() => setEventoActivo(e)} className={`px-8 py-3 rounded-full text-sm font-bold transition-colors ${
-            eventoActivo === e 
-              ? 'bg-[#34D399] text-[#0B1120]' 
-              : isDark ? 'bg-[#1E293B] text-zinc-500' : 'bg-gray-200 text-gray-600'
-          }`}>{e}</button>
+          <button key={e} onClick={() => setEventoActivo(e)} className={`px-8 py-3 rounded-full text-sm font-bold ${eventoActivo === e ? 'bg-[#34D399] text-[#0B1120]' : 'bg-[#1E293B] text-zinc-500'}`}>{e}</button>
         ))}
       </div>
 
-      <div className={`font-bold mb-6 flex gap-6 overflow-x-auto pb-2 ${
-        isDark ? 'text-zinc-500' : 'text-gray-500'
-      }`}>
+      <div className="text-zinc-500 font-bold mb-6 flex gap-6 overflow-x-auto pb-2">
         {['Todos', 'Libre', 'Master', 'Femenino'].map((cat) => (
-          <button key={cat} onClick={() => setCategoriaActiva(cat)} className={
-            categoriaActiva === cat 
-              ? 'text-[#34D399] border-b-2 border-[#34D399]' 
-              : `hover:text-[#34D399]/70 ${isDark ? '' : 'hover:text-emerald-600'}`
-          }>{cat}</button>
+          <button key={cat} onClick={() => setCategoriaActiva(cat)} className={categoriaActiva === cat ? 'text-[#34D399] border-b-2 border-[#34D399]' : 'hover:text-[#34D399]/70'}>{cat}</button>
         ))}
       </div>
 
