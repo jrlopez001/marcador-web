@@ -1,532 +1,175 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, memo } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '../utils/supabase/client'
-import Navbar from './Navbar'
 
-const supabase = createClient()
-
-// =====================================================
-// 1. BALÓN GIGANTE
-// =====================================================
-const BalonGigante = () => (
-  <motion.div
-    initial={{ x: '-100vw', rotate: -720, scale: 0.5 }}
-    animate={{
-      x: 0,
-      rotate: 0,
-      scale: [0.5, 1.2, 1],
-      transition: { duration: 0.8, times: [0, 0.6, 1] }
-    }}
-    exit={{ scale: 2, opacity: 0 }}
-    transition={{ duration: 0.5 }}
-    className="text-[180px] absolute z-20"
-  >
-    ⚽
-  </motion.div>
-)
-
-// =====================================================
-// 2. TORNADO DE ENERGÍA VERDE
-// =====================================================
-const TornadoEnergia = () => {
-  const particulas = Array.from({ length: 80 }).map((_, i) => {
-    const anguloInicial = Math.random() * 360
-    const radioInicial = 20 + Math.random() * 80
-    const velocidadAngular = 300 + Math.random() * 200
-    const velocidadRadial = 150 + Math.random() * 100
-    const tamaño = 4 + Math.random() * 12
-    const retraso = Math.random() * 0.5
-    return { id: i, anguloInicial, radioInicial, velocidadAngular, velocidadRadial, tamaño, retraso }
-  })
-
-  return (
-    <>
-      <motion.div
-        initial={{ scale: 0, opacity: 0.9 }}
-        animate={{ scale: 8, opacity: 0 }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
-        className="absolute rounded-full bg-green-500 w-40 h-40 blur-xl"
-      />
-      {[0, 1, 2, 3].map((i) => (
-        <motion.div
-          key={i}
-          initial={{ scale: 0, opacity: 0.8 }}
-          animate={{ scale: 12, opacity: 0 }}
-          transition={{ duration: 1.5, delay: i * 0.1 }}
-          className="absolute rounded-full border-4 border-green-400 w-20 h-20"
-          style={{ borderWidth: 6 - i }}
-        />
-      ))}
-      {particulas.map((p) => {
-        const anguloFinal = p.anguloInicial + 720
-        const radioFinal = p.radioInicial + 400
-        const xFinal = Math.cos(anguloFinal * Math.PI / 180) * radioFinal
-        const yFinal = Math.sin(anguloFinal * Math.PI / 180) * radioFinal
-        const xInicial = Math.cos(p.anguloInicial * Math.PI / 180) * p.radioInicial
-        const yInicial = Math.sin(p.anguloInicial * Math.PI / 180) * p.radioInicial
-        return (
-          <motion.div
-            key={p.id}
-            initial={{ x: xInicial, y: yInicial, scale: 0, opacity: 1 }}
-            animate={{ x: xFinal, y: yFinal, scale: 1, opacity: 0 }}
-            transition={{ duration: 1.2, delay: p.retraso, ease: "easeOut" }}
-            className="absolute rounded-full bg-green-300 shadow-lg"
-            style={{ width: p.tamaño, height: p.tamaño, boxShadow: '0 0 10px #4ade80' }}
-          />
-        )
-      })}
-      <motion.div
-        initial={{ scale: 0, opacity: 1 }}
-        animate={{ scale: 15, opacity: 0 }}
-        transition={{ duration: 0.8, delay: 0.6 }}
-        className="absolute rounded-full bg-white w-10 h-10"
-      />
-    </>
+export default function Ruleta() {
+  const [opcionesTexto, setOpcionesTexto] = useState(
+    '¡Casi ganas, colocho(a)! (Cero premio)\n' +
+    '¡A la gran! No ganaste (Cero premio)\n' +
+    '¡Puchis, qué salado! Perdiste (Cero premio)\n' +
+    'Premio Consuelo, por buzo: ¡Tomá un premio!\n' +
+    '¡Buena onda, tomá un premio!\n' +
+    '¡Mejor dedicate a vender atol! (Cero premio)\n' +
+    '¡Puchis, qué chilero, te ganaste un premio!\n' +
+    'Ya te hiciste bolas, por eso perdiste (Cero premio)\n' +
+    '¡Te fuiste en blanco, mejor pedí fiado! (Cero premio)\n' +
+    '¡Pilas pues, te rayaste 1 premio'
   )
-}
+  const [rotacion, setRotacion] = useState(0)
+  const [girando, setGirando] = useState(false)
+  const [ganador, setGanador] = useState<string | null>(null)
 
-// =====================================================
-// 3. EXPLOSIÓN DE CHISPAS
-// =====================================================
-const ExplosionChispas = () => {
-  const chispas = Array.from({ length: 120 }).map((_, i) => ({
-    id: i,
-    angle: Math.random() * 360,
-    distance: 250 + Math.random() * 400,
-    size: 3 + Math.random() * 12,
-    delay: Math.random() * 0.4,
-    duration: 1.2 + Math.random() * 0.8
-  }))
+  const opciones = opcionesTexto
+    .split('\n')
+    .map((opt) => opt.trim())
+    .filter((opt) => opt.length > 0)
 
-  return (
-    <>
-      <motion.div
-        initial={{ scale: 0, opacity: 1 }}
-        animate={{ scale: 18, opacity: 0 }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
-        className="absolute rounded-full bg-green-500 w-40 h-40 z-10"
-      />
-      {chispas.map((chispa) => (
-        <motion.div
-          key={chispa.id}
-          initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
-          animate={{
-            scale: [0, 1, 0.5, 0],
-            x: Math.cos(chispa.angle * Math.PI / 180) * chispa.distance,
-            y: Math.sin(chispa.angle * Math.PI / 180) * chispa.distance,
-          }}
-          transition={{ duration: chispa.duration, delay: chispa.delay }}
-          className="absolute rounded-full bg-green-400"
-          style={{ width: chispa.size, height: chispa.size }}
-        />
-      ))}
-    </>
-  )
-}
+  const girarRuleta = () => {
+    if (girando || opciones.length === 0) return
 
-// =====================================================
-// 4. LLUVIA DE BALONES
-// =====================================================
-const LluviaBalones = () => {
-  const [windowHeight, setWindowHeight] = useState(0)
-  const [windowWidth, setWindowWidth] = useState(0)
+    setGirando(true)
+    setGanador(null)
 
-  useEffect(() => {
-    setWindowHeight(window.innerHeight)
-    setWindowWidth(window.innerWidth)
-  }, [])
+    const totalOpciones = opciones.length
+    const gradosPorOpcion = 360 / totalOpciones
 
-  const balones = Array.from({ length: 40 }).map((_, i) => ({
-    id: i,
-    left: Math.random() * windowWidth,
-    size: 20 + Math.random() * 40,
-    rotate: Math.random() * 360,
-    duration: 1 + Math.random() * 1.5,
-    delay: Math.random() * 1.5,
-  }))
+    const vueltasExtras = Math.floor(Math.random() * 5) + 5
+    const opcionGanadoraIndex = Math.floor(Math.random() * totalOpciones)
+    
+    const anguloDestino = rotacion + (360 * vueltasExtras) + (360 - (opcionGanadoraIndex * gradosPorOpcion) - (gradosPorOpcion / 2))
 
-  if (windowHeight === 0) return null
+    setRotacion(anguloDestino)
 
-  return (
-    <>
-      {balones.map((b) => (
-        <motion.div
-          key={b.id}
-          initial={{ y: -100, rotate: b.rotate, opacity: 1 }}
-          animate={{ y: windowHeight + 100, rotate: b.rotate + 360 }}
-          transition={{ duration: b.duration, delay: b.delay }}
-          className="fixed pointer-events-none z-20"
-          style={{ left: b.left, fontSize: b.size }}
-        >
-          ⚽
-        </motion.div>
-      ))}
-    </>
-  )
-}
-
-// =====================================================
-// Tarjeta de partido (con fondo blanco y resaltado en gol)
-// =====================================================
-const PartidoCard = memo(({ partido, golInfo }: any) => {
-  const getTiempoColor = (t: string) => {
-    const str = t?.toLowerCase() || ''
-    if (str.includes('1er')) return 'text-emerald-700'
-    if (str.includes('2do')) return 'text-orange-600'
-    if (str.includes('finalizado')) return 'text-red-600'
-    return 'text-gray-500'
+    setTimeout(() => {
+      setGirando(false)
+      setGanador(opciones[opcionGanadoraIndex])
+    }, 4000)
   }
 
-  // Indicador de partido en curso (no finalizado)
-  const esEnVivo = partido.estado !== 'finalizado' && partido.periodo_actual && !partido.periodo_actual.toLowerCase().includes('finalizado')
-
-  // Fondo de la tarjeta: blanco normalmente, verde claro cuando hay gol
-  const cardBg = golInfo ? 'bg-green-100 border-green-300' : 'bg-white border-gray-200'
+  const colores = ['#059669', '#10b981', '#047857', '#34d399', '#065f46', '#6ee7b7', '#046c4e', '#2bb673']
 
   return (
-    <div className={`p-3 rounded-xl border shadow-sm transition-all duration-500 ${cardBg}`}>
-      {/* Línea superior: solo categoría a la izquierda y EN VIVO a la derecha */}
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-[9px] uppercase font-bold text-gray-500 tracking-wider">
-          {partido.categorias?.nombre}
-        </span>
-        {esEnVivo && (
-          <div className="flex items-center gap-1 text-xs font-bold text-red-600 animate-pulse">
-            <span className="inline-block w-2 h-2 bg-red-600 rounded-full"></span>
-            EN VIVO
-          </div>
-        )}
-      </div>
+    <div className="max-w-md mx-auto p-4 flex flex-col items-center">
+      <h2 className="text-xl font-black text-emerald-700 tracking-wider uppercase mb-2">
+        Ruleta Chapina
+      </h2>
+      <p className="text-xs text-gray-500 mb-4 text-center">
+        ¡Gira la ruleta y mira qué te depara la suerte hoy!
+      </p>
 
-      {golInfo && (
-        <div className="mb-2 text-center border-b border-green-200 pb-1">
-          {/* 
-            ============================================================
-            🔽 TAMAÑO DEL TEXTO DEL GOL - MODIFICA 'text-base' y 'text-sm'
-            ============================================================
-            - 'text-base' controla el nombre del goleador.
-            - 'text-sm' controla el número y equipo.
-            Cambia estas clases por otras como 'text-lg', 'text-xl', etc.
-            ============================================================
-          */}
-          <span className="text-base font-bold text-green-700">
-            ⚽ ¡GOL DE: {golInfo.nombre}!
-          </span>
-          <span className="text-sm font-medium text-green-600 ml-1">
-            (#{golInfo.numero}) - {golInfo.equipo}
-          </span>
-        </div>
-      )}
+      {/* Contenedor de la Ruleta */}
+      <div className="relative w-80 h-80 md:w-96 md:h-96 flex items-center justify-center my-4">
+        {/* Indicador / Flecha superior */}
+        <div className="absolute -top-3 z-30 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[22px] border-t-red-600 drop-shadow-md" />
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="w-[40%] text-right font-bold text-sm truncate text-gray-800">
-          {partido.equipo1?.nombre}
-        </div>
-        <div className="flex items-center gap-2 font-mono text-lg font-black text-emerald-600">
-          <span>{partido.goles_ep1}</span><span>:</span><span>{partido.goles_ep2}</span>
-        </div>
-        <div className="w-[40%] text-left font-bold text-sm truncate text-gray-800">
-          {partido.equipo2?.nombre}
-        </div>
-      </div>
-
-      <div className={`text-[9px] text-center font-bold uppercase mt-1 ${getTiempoColor(partido.periodo_actual)}`}>
-        {partido.periodo_actual || 'Pendiente'}
-      </div>
-    </div>
-  )
-})
-PartidoCard.displayName = 'PartidoCard'
-
-// =====================================================
-// Componente principal
-// =====================================================
-export default function Home() {
-  const [partidos, setPartidos] = useState<any[]>([])
-  const [categoriaActiva, setCategoriaActiva] = useState('Todos')
-  const [eventoActivo, setEventoActivo] = useState('VIERNES')
-  const [mostrarGol, setMostrarGol] = useState(false)
-  const [golInfo, setGolInfo] = useState<any>({})
-  const [tipoAnimacion, setTipoAnimacion] = useState<string>('')
-  const [golPartidoIdActual, setGolPartidoIdActual] = useState<string | null>(null)
-
-  // Audio: inicia en mute (true)
-  const [isMuted, setIsMuted] = useState(true)
-
-  const golTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const golInfoTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
-  const marcadorAnterior = useRef<any>({})
-  
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const audioBufferRef = useRef<AudioBuffer | null>(null)
-
-  const animaciones = ['balon', 'tornado', 'explosion', 'lluvia']
-  const getRandomAnimacion = () => animaciones[Math.floor(Math.random() * animaciones.length)]
-
-  useEffect(() => {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContextClass) return
-    const ctx = new AudioContextClass()
-    audioContextRef.current = ctx
-    fetch('/gol.mp3')
-      .then(response => response.arrayBuffer())
-      .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
-      .then(decodedBuffer => {
-        audioBufferRef.current = decodedBuffer
-      })
-      .catch(err => console.error("Error al cargar el búfer de audio:", err))
-
-    const activarContextoAudio = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().then(() => {
-          window.removeEventListener('click', activarContextoAudio)
-          window.removeEventListener('touchstart', activarContextoAudio)
-        })
-      } else {
-        window.removeEventListener('click', activarContextoAudio)
-        window.removeEventListener('touchstart', activarContextoAudio)
-      }
-    }
-    window.addEventListener('click', activarContextoAudio)
-    window.addEventListener('touchstart', activarContextoAudio)
-    return () => {
-      window.removeEventListener('click', activarContextoAudio)
-      window.removeEventListener('touchstart', activarContextoAudio)
-    }
-  }, [])
-
-  const reproducirGolAudio = useCallback(() => {
-    if (!audioContextRef.current || !audioBufferRef.current) return
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume()
-    }
-    const source = audioContextRef.current.createBufferSource()
-    source.buffer = audioBufferRef.current
-    const gainNode = audioContextRef.current.createGain()
-    gainNode.gain.setValueAtTime(isMuted ? 0 : 1, audioContextRef.current.currentTime)
-    source.connect(gainNode)
-    gainNode.connect(audioContextRef.current.destination)
-    source.start(0)
-  }, [isMuted])
-
-  const fetchPartidos = useCallback(async () => {
-    const { data } = await supabase
-      .from('partidos')
-      .select(`
-        id, goles_ep1, goles_ep2, estado, periodo_actual, evento,
-        categorias (nombre), 
-        equipo1:equipo1_id (nombre), 
-        equipo2:equipo2_id (nombre)
-      `)
-      .eq('evento', eventoActivo)
-      .order('categorias(nombre)', { ascending: true })
-
-    if (data) {
-      data.forEach((p) => {
-        marcadorAnterior.current[p.id] = {
-          goles_ep1: p.goles_ep1,
-          goles_ep2: p.goles_ep2,
-        }
-      })
-      setPartidos(data)
-    }
-  }, [eventoActivo])
-
-  const obtenerUltimoGol = useCallback(async (partidoId: string) => {
-    try {
-      const { data } = await supabase
-        .from('goles')
-        .select(`
-          jugadores (nombre, numero_camisola),
-          equipos (nombre)
-        `)
-        .eq('partido_id', partidoId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (data) {
-        const jugador = data.jugadores?.[0] || data.jugadores
-        const equipo = data.equipos?.[0] || data.equipos
-        return {
-          nombre: jugador?.nombre || 'Jugador',
-          numero: jugador?.numero_camisola || '0',
-          equipo: equipo?.nombre || 'Equipo',
-        }
-      }
-    } catch (error) {
-      console.error('Error al obtener gol:', error)
-    }
-    return null
-  }, [])
-
-  useEffect(() => {
-    fetchPartidos()
-
-    const channel = supabase
-      .channel('realtime')
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'partidos' },
-        async (payload) => {
-          const partidoActualizado = payload.new
-          const partidoId = partidoActualizado.id
-          const anterior = marcadorAnterior.current[partidoId]
-
-          const huboGol = anterior && (
-            partidoActualizado.goles_ep1 > anterior.goles_ep1 ||
-            partidoActualizado.goles_ep2 > anterior.goles_ep2
-          )
-
-          if (huboGol) {
-            const randomAnim = getRandomAnimacion()
-            setTipoAnimacion(randomAnim)
-            setMostrarGol(true)
-            setGolPartidoIdActual(partidoId)
-            reproducirGolAudio()
-
-            if (partidoActualizado.ultimo_gol_jugador && partidoActualizado.ultimo_gol_equipo) {
-              const infoGol = {
-                nombre: partidoActualizado.ultimo_gol_jugador,
-                numero: partidoActualizado.ultimo_gol_numero || '?',
-                equipo: partidoActualizado.ultimo_gol_equipo,
-              }
-              setGolInfo((prev: any) => ({ ...prev, [partidoId]: infoGol }))
-              if (golInfoTimeoutRef.current[partidoId]) clearTimeout(golInfoTimeoutRef.current[partidoId])
-              golInfoTimeoutRef.current[partidoId] = setTimeout(() => {
-                setGolInfo((prev: any) => ({ ...prev, [partidoId]: null }))
-              }, 15000)
-            } else {
-              const infoGol = await obtenerUltimoGol(partidoId)
-              if (infoGol) {
-                setGolInfo((prev: any) => ({ ...prev, [partidoId]: infoGol }))
-                if (golInfoTimeoutRef.current[partidoId]) clearTimeout(golInfoTimeoutRef.current[partidoId])
-                golInfoTimeoutRef.current[partidoId] = setTimeout(() => {
-                  setGolInfo((prev: any) => ({ ...prev, [partidoId]: null }))
-                }, 15000)
-              }
-            }
-
-            if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
-            golTimeoutRef.current = setTimeout(() => {
-              setMostrarGol(false)
-              setTipoAnimacion('')
-              setGolPartidoIdActual(null)
-            }, 5000)
-          }
-
-          setPartidos((prev) =>
-            prev.map((p) =>
-              p.id === partidoId ? { ...p, ...partidoActualizado } : p
-            )
-          )
-
-          marcadorAnterior.current[partidoId] = {
-            goles_ep1: partidoActualizado.goles_ep1,
-            goles_ep2: partidoActualizado.goles_ep2,
-          }
-        }
-      )
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'partidos' },
-        () => fetchPartidos()
-      )
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'partidos' },
-        () => fetchPartidos()
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-      if (golTimeoutRef.current) clearTimeout(golTimeoutRef.current)
-      Object.values(golInfoTimeoutRef.current).forEach(clearTimeout)
-    }
-  }, [fetchPartidos, obtenerUltimoGol, reproducirGolAudio])
-
-  const infoGolActual = golPartidoIdActual ? golInfo[golPartidoIdActual] : null
-
-  return (
-    <main className="min-h-screen bg-[#F5F0EB] text-gray-800 p-4 font-sans pb-28 relative overflow-hidden">
-      <AnimatePresence>
-        {mostrarGol && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 overflow-hidden">
-            <div className="absolute inset-0 bg-green-500 animate-pulse opacity-20" />
-            {tipoAnimacion === 'balon' && <BalonGigante />}
-            {tipoAnimacion === 'tornado' && <TornadoEnergia />}
-            {tipoAnimacion === 'explosion' && <ExplosionChispas />}
-            {tipoAnimacion === 'lluvia' && <LluviaBalones />}
-            <div className="relative z-30 flex flex-col items-center justify-center">
-              <h1 className="text-[100px] font-black text-green-400 capitalize animate-pulse">
-                Gool
-              </h1>
-              {infoGolActual && (
-                <div className="text-center text-white mt-4">
-                  <p className="text-3xl md:text-5xl font-bold text-green-300">
-                    ¡{infoGolActual.nombre}!
-                  </p>
-                  <p className="text-lg md:text-2xl text-green-200/80">
-                    #{infoGolActual.numero} - {infoGolActual.equipo}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Cabecera */}
-      <div className="flex justify-between items-center mb-6 mt-2">
-        <h1 className="font-black tracking-[0.2em] text-[15px] uppercase text-emerald-700">
-          MARCADOR WEB
-        </h1>
-        <button 
-          onClick={() => setIsMuted(!isMuted)} 
-          className="flex items-center justify-center bg-white hover:bg-gray-100 text-gray-800 w-9 h-9 rounded-full shadow-sm transition-colors duration-200 outline-none border border-gray-200"
-          title={isMuted ? "Activar Sonido" : "Silenciar Sonido"}
+        <motion.div
+          animate={{ rotate: rotacion }}
+          transition={{ duration: 4, ease: [0.15, 0.85, 0.15, 1] }}
+          className="w-full h-full rounded-full border-4 border-emerald-800 shadow-xl relative overflow-hidden bg-white"
         >
-          {isMuted ? (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-red-500">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+          {opciones.length > 0 ? (
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              {opciones.map((op, i) => {
+                const total = opciones.length
+                const angulo = 360 / total
+                const rotacionSlice = i * angulo
+                
+                const x1 = 50 + 50 * Math.cos((Math.PI * rotacionSlice) / 180)
+                const y1 = 50 + 50 * Math.sin((Math.PI * rotacionSlice) / 180)
+                const x2 = 50 + 50 * Math.cos((Math.PI * (rotacionSlice + angulo)) / 180)
+                const y2 = 50 + 50 * Math.sin((Math.PI * (rotacionSlice + angulo)) / 180)
+                const largeArc = angulo > 180 ? 1 : 0
+
+                // Ángulo medio para posicionar el texto dentro del gajo
+                const anguloMedio = rotacionSlice + angulo / 2
+                
+                // Recortar texto largo para que se vea ordenado dentro de la gráfica
+                const textoCorto = op.length > 22 ? op.substring(0, 20) + '...' : op
+
+                return (
+                  <g key={i}>
+                    <path
+                      d={`M50,50 L${x1},${y1} A50,50 0 ${largeArc},1 ${x2},${y2} Z`}
+                      fill={colores[i % colores.length]}
+                      stroke="#ffffff"
+                      strokeWidth="0.8"
+                    />
+                    <text
+                      x="72"
+                      y="50"
+                      fill="#ffffff"
+                      fontSize="3.2"
+                      fontWeight="bold"
+                      fontFamily="sans-serif"
+                      textAnchor="middle"
+                      transform={`rotate(${anguloMedio}, 50, 50)`}
+                      style={{ textShadow: '0px 0px 2px rgba(0,0,0,0.7)' }}
+                    >
+                      {textoCorto}
+                    </text>
+                  </g>
+                )
+              })}
             </svg>
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-600">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-            </svg>
+            <div className="flex items-center justify-center h-full text-xs text-gray-400 font-bold">
+              Agrega opciones
+            </div>
           )}
+        </motion.div>
+
+        {/* Botón Central de la Ruleta */}
+        <button
+          onClick={girarRuleta}
+          disabled={girando || opciones.length === 0}
+          className="absolute z-20 w-16 h-16 bg-white border-4 border-emerald-800 rounded-full flex items-center justify-center shadow-lg font-black text-xs text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-transform cursor-pointer disabled:opacity-50"
+        >
+          {girando ? '...' : 'GIRAR'}
         </button>
       </div>
 
-      {/* Filtros de evento */}
-      <div className="flex gap-4 mb-6">
-        {['VIERNES', 'SABADO'].map((e) => (
-          <button key={e} onClick={() => setEventoActivo(e)} className={`px-8 py-3 rounded-full text-sm font-bold transition-colors ${
-            eventoActivo === e 
-              ? 'bg-emerald-600 text-white' 
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-          }`}>{e}</button>
-        ))}
+      {/* Textarea para editar o agregar más opciones */}
+      <div className="w-full mt-4">
+        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">
+          Opciones de la ruleta (una por línea):
+        </label>
+        <textarea
+          rows={5}
+          value={opcionesTexto}
+          onChange={(e) => setOpcionesTexto(e.target.value)}
+          disabled={girando}
+          className="w-full p-3 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:outline-none focus:border-emerald-600 shadow-sm resize-none font-medium"
+        />
       </div>
 
-      {/* Filtros de categoría */}
-      <div className="font-bold mb-6 flex gap-6 overflow-x-auto pb-2 text-gray-600">
-        {['Todos', 'Libre', 'Master', 'Femenino'].map((cat) => (
-          <button key={cat} onClick={() => setCategoriaActiva(cat)} className={
-            categoriaActiva === cat 
-              ? 'text-emerald-600 border-b-2 border-emerald-600' 
-              : 'hover:text-emerald-500'
-          }>{cat}</button>
-        ))}
-      </div>
-
-      {/* Lista de partidos */}
-      <div className="space-y-3">
-        {partidos.filter((p) => categoriaActiva === 'Todos' || p.categorias?.nombre === categoriaActiva).map((p) => (
-          <PartidoCard key={p.id} partido={p} golInfo={golInfo[p.id]} />
-        ))}
-      </div>
-      <Navbar />
-    </main>
+      {/* Modal de Resultado */}
+      <AnimatePresence>
+        {ganador && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          >
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl border border-emerald-100">
+              <span className="text-3xl">🎯</span>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-2 mb-1">
+                Resultado
+              </h3>
+              <p className="text-xl font-black text-emerald-700 my-3">
+                {ganador}
+              </p>
+              <button
+                onClick={() => setGanador(null)}
+                className="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors shadow-md text-sm"
+              >
+                ¡Probar otra vez!
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
