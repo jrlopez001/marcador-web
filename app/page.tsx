@@ -1,175 +1,298 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 
-export default function Ruleta() {
-  const [opcionesTexto, setOpcionesTexto] = useState(
-    '¡Casi ganas, colocho(a)! (Cero premio)\n' +
-    '¡A la gran! No ganaste (Cero premio)\n' +
-    '¡Puchis, qué salado! Perdiste (Cero premio)\n' +
-    'Premio Consuelo, por buzo: ¡Tomá un premio!\n' +
-    '¡Buena onda, tomá un premio!\n' +
-    '¡Mejor dedicate a vender atol! (Cero premio)\n' +
-    '¡Puchis, qué chilero, te ganaste un premio!\n' +
-    'Ya te hiciste bolas, por eso perdiste (Cero premio)\n' +
-    '¡Te fuiste en blanco, mejor pedí fiado! (Cero premio)\n' +
-    '¡Pilas pues, te rayaste 1 premio'
-  )
-  const [rotacion, setRotacion] = useState(0)
-  const [girando, setGirando] = useState(false)
-  const [ganador, setGanador] = useState<string | null>(null)
+export default function Home() {
+  const [score, setScore] = useState(0)
+  const [lives, setLives] = useState(3)
+  const [gameOver, setGameOver] = useState(false)
 
-  const opciones = opcionesTexto
-    .split('\n')
-    .map((opt) => opt.trim())
-    .filter((opt) => opt.length > 0)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const animationRef = useRef<number | null>(null)
 
-  const girarRuleta = () => {
-    if (girando || opciones.length === 0) return
+  const targetsRef = useRef<any[]>([])
+  const particlesRef = useRef<any[]>([])
+  const imagesRef = useRef<HTMLImageElement[]>([])
+  
+  const mousePosRef = useRef({ x: 0, y: 0 })
+  const scoreRef = useRef(0)
+  const gameOverRef = useRef(false)
+  const spawnTimerRef = useRef(0)
+  const spawnIntervalRef = useRef(70)
 
-    setGirando(true)
-    setGanador(null)
+  scoreRef.current = score
+  gameOverRef.current = gameOver
 
-    const totalOpciones = opciones.length
-    const gradosPorOpcion = 360 / totalOpciones
+  // Cargar las 6 imágenes PNG desde la carpeta /public
+  useEffect(() => {
+    const imageNames = [
+      'diablo.png',
+      'calabaza.png',
+      'reina.png',
+      'frankenstein.png',
+      'vampiro.png',
+      'mago.png'
+    ]
 
-    const vueltasExtras = Math.floor(Math.random() * 5) + 5
-    const opcionGanadoraIndex = Math.floor(Math.random() * totalOpciones)
-    
-    const anguloDestino = rotacion + (360 * vueltasExtras) + (360 - (opcionGanadoraIndex * gradosPorOpcion) - (gradosPorOpcion / 2))
+    const loaded: HTMLImageElement[] = []
+    imageNames.forEach((name) => {
+      const img = new Image()
+      img.src = `/${name}`
+      loaded.push(img)
+    })
+    imagesRef.current = loaded
+  }, [])
 
-    setRotacion(anguloDestino)
-
-    setTimeout(() => {
-      setGirando(false)
-      setGanador(opciones[opcionGanadoraIndex])
-    }, 4000)
+  const restartGame = () => {
+    setScore(0)
+    setLives(3)
+    setGameOver(false)
+    scoreRef.current = 0
+    gameOverRef.current = false
+    targetsRef.current = []
+    particlesRef.current = []
+    spawnIntervalRef.current = 70
+    spawnTimerRef.current = 0
   }
 
-  const colores = ['#059669', '#10b981', '#047857', '#34d399', '#065f46', '#6ee7b7', '#046c4e', '#2bb673']
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    // Añadimos el signo '!' para asegurar a TypeScript que ctx no es nulo
+    const ctx = canvas.getContext('2d')!
+    if (!ctx) return
+
+    const handleResize = () => {
+      if (!canvasRef.current) return
+      canvasRef.current.width = window.innerWidth
+      canvasRef.current.height = window.innerHeight
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!canvasRef.current) return
+      const rect = canvasRef.current.getBoundingClientRect()
+      mousePosRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    class Target {
+      size: number
+      x: number
+      y: number
+      speed: number
+      image: HTMLImageElement
+
+      constructor() {
+        this.size = 70
+        const currentCanvas = canvasRef.current!
+        this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
+        this.y = -this.size
+        this.speed = 1.5 + Math.random() * 2 + scoreRef.current / 150
+        
+        const imgs = imagesRef.current
+        this.image = imgs[Math.floor(Math.random() * imgs.length)]
+      }
+
+      update() {
+        this.y += this.speed
+      }
+
+      draw() {
+        ctx.save()
+        if (this.image && this.image.complete && this.image.naturalWidth !== 0) {
+          ctx.drawImage(
+            this.image,
+            this.x - this.size / 2,
+            this.y - this.size / 2,
+            this.size,
+            this.size
+          )
+        } else {
+          ctx.beginPath()
+          ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2)
+          ctx.fillStyle = '#ffe0bd'
+          ctx.fill()
+          ctx.lineWidth = 2
+          ctx.strokeStyle = '#d4a373'
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
+    }
+
+    class Particle {
+      x: number
+      y: number
+      radius: number
+      color: string
+      vx: number
+      vy: number
+      alpha: number
+      decay: number
+
+      constructor(x: number, y: number) {
+        this.x = x
+        this.y = y
+        this.radius = Math.random() * 5 + 2
+        this.color = `hsl(${Math.random() * 40 + 10}, 100%, 50%)`
+        this.vx = (Math.random() - 0.5) * 8
+        this.vy = (Math.random() - 0.5) * 8
+        this.alpha = 1
+        this.decay = Math.random() * 0.03 + 0.015
+      }
+
+      update() {
+        this.x += this.vx
+        this.y += this.vy
+        this.alpha -= this.decay
+      }
+
+      draw() {
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, this.alpha)
+        ctx.beginPath()
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+        ctx.fillStyle = this.color
+        ctx.fill()
+        ctx.restore()
+      }
+    }
+
+    const createExplosion = (x: number, y: number) => {
+      for (let i = 0; i < 25; i++) {
+        particlesRef.current.push(new Particle(x, y))
+      }
+    }
+
+    const drawCrosshair = () => {
+      const { x, y } = mousePosRef.current
+      ctx.save()
+      ctx.strokeStyle = '#ff4757'
+      ctx.lineWidth = 2
+
+      ctx.beginPath()
+      ctx.arc(x, y, 20, 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.arc(x, y, 4, 0, Math.PI * 2)
+      ctx.fillStyle = '#ff4757'
+      ctx.fill()
+
+      ctx.beginPath()
+      ctx.moveTo(x - 30, y); ctx.lineTo(x - 10, y)
+      ctx.moveTo(x + 10, y); ctx.lineTo(x + 30, y)
+      ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10)
+      ctx.moveTo(x, y + 10); ctx.lineTo(x, y + 30)
+      ctx.stroke()
+
+      ctx.restore()
+    }
+
+    const handleMouseDown = () => {
+      if (gameOverRef.current) return
+
+      const { x: mx, y: my } = mousePosRef.current
+      const targets = targetsRef.current
+
+      for (let i = targets.length - 1; i >= 0; i--) {
+        const t = targets[i]
+        if (
+          mx >= t.x - t.size / 2 &&
+          mx <= t.x + t.size / 2 &&
+          my >= t.y - t.size / 2 &&
+          my <= t.y + t.size / 2
+        ) {
+          createExplosion(t.x, t.y)
+          targets.splice(i, 1)
+          setScore(prev => prev + 10)
+          break
+        }
+      }
+    }
+
+    window.addEventListener('mousedown', handleMouseDown)
+
+    const gameLoop = () => {
+      if (gameOverRef.current || !canvasRef.current) return
+
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+
+      spawnTimerRef.current++
+      if (spawnTimerRef.current >= spawnIntervalRef.current) {
+        targetsRef.current.push(new Target())
+        spawnTimerRef.current = 0
+        if (spawnIntervalRef.current > 30) spawnIntervalRef.current -= 0.5
+      }
+
+      for (let i = targetsRef.current.length - 1; i >= 0; i--) {
+        const t = targetsRef.current[i]
+        t.update()
+        t.draw()
+
+        if (t.y > canvasRef.current.height + t.size) {
+          targetsRef.current.splice(i, 1)
+          setLives(prev => {
+            const newLives = prev - 1
+            if (newLives <= 0) {
+              setGameOver(true)
+            }
+            return newLives
+          })
+        }
+      }
+
+      for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+        const p = particlesRef.current[i]
+        p.update()
+        p.draw()
+        if (p.alpha <= 0) {
+          particlesRef.current.splice(i, 1)
+        }
+      }
+
+      drawCrosshair()
+      animationRef.current = requestAnimationFrame(gameLoop)
+    }
+
+    gameLoop()
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mousedown', handleMouseDown)
+    }
+  }, [gameOver])
 
   return (
-    <div className="max-w-md mx-auto p-4 flex flex-col items-center">
-      <h2 className="text-xl font-black text-emerald-700 tracking-wider uppercase mb-2">
-        Ruleta Chapina
-      </h2>
-      <p className="text-xs text-gray-500 mb-4 text-center">
-        ¡Gira la ruleta y mira qué te depara la suerte hoy!
-      </p>
+    <main className="relative min-h-screen bg-[#1a1a1a] text-white overflow-hidden flex flex-col items-center justify-center select-none" style={{ cursor: 'none' }}>
+      <div className="relative shadow-[0_0_20px_rgba(0,0,0,0.8)] border-4 border-[#333] rounded-lg overflow-hidden">
+        <canvas ref={canvasRef} className="block bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]" />
+        
+        <div className="absolute top-4 left-4 right-4 flex justify-between text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.8)] pointer-events-none">
+          <div>Puntos: <span id="score">{score}</span></div>
+          <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
+        </div>
 
-      {/* Contenedor de la Ruleta */}
-      <div className="relative w-80 h-80 md:w-96 md:h-96 flex items-center justify-center my-4">
-        {/* Indicador / Flecha superior */}
-        <div className="absolute -top-3 z-30 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[22px] border-t-red-600 drop-shadow-md" />
-
-        <motion.div
-          animate={{ rotate: rotacion }}
-          transition={{ duration: 4, ease: [0.15, 0.85, 0.15, 1] }}
-          className="w-full h-full rounded-full border-4 border-emerald-800 shadow-xl relative overflow-hidden bg-white"
-        >
-          {opciones.length > 0 ? (
-            <svg viewBox="0 0 100 100" className="w-full h-full">
-              {opciones.map((op, i) => {
-                const total = opciones.length
-                const angulo = 360 / total
-                const rotacionSlice = i * angulo
-                
-                const x1 = 50 + 50 * Math.cos((Math.PI * rotacionSlice) / 180)
-                const y1 = 50 + 50 * Math.sin((Math.PI * rotacionSlice) / 180)
-                const x2 = 50 + 50 * Math.cos((Math.PI * (rotacionSlice + angulo)) / 180)
-                const y2 = 50 + 50 * Math.sin((Math.PI * (rotacionSlice + angulo)) / 180)
-                const largeArc = angulo > 180 ? 1 : 0
-
-                // Ángulo medio para posicionar el texto dentro del gajo
-                const anguloMedio = rotacionSlice + angulo / 2
-                
-                // Recortar texto largo para que se vea ordenado dentro de la gráfica
-                const textoCorto = op.length > 22 ? op.substring(0, 20) + '...' : op
-
-                return (
-                  <g key={i}>
-                    <path
-                      d={`M50,50 L${x1},${y1} A50,50 0 ${largeArc},1 ${x2},${y2} Z`}
-                      fill={colores[i % colores.length]}
-                      stroke="#ffffff"
-                      strokeWidth="0.8"
-                    />
-                    <text
-                      x="72"
-                      y="50"
-                      fill="#ffffff"
-                      fontSize="3.2"
-                      fontWeight="bold"
-                      fontFamily="sans-serif"
-                      textAnchor="middle"
-                      transform={`rotate(${anguloMedio}, 50, 50)`}
-                      style={{ textShadow: '0px 0px 2px rgba(0,0,0,0.7)' }}
-                    >
-                      {textoCorto}
-                    </text>
-                  </g>
-                )
-              })}
-            </svg>
-          ) : (
-            <div className="flex items-center justify-center h-full text-xs text-gray-400 font-bold">
-              Agrega opciones
-            </div>
-          )}
-        </motion.div>
-
-        {/* Botón Central de la Ruleta */}
-        <button
-          onClick={girarRuleta}
-          disabled={girando || opciones.length === 0}
-          className="absolute z-20 w-16 h-16 bg-white border-4 border-emerald-800 rounded-full flex items-center justify-center shadow-lg font-black text-xs text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-transform cursor-pointer disabled:opacity-50"
-        >
-          {girando ? '...' : 'GIRAR'}
-        </button>
-      </div>
-
-      {/* Textarea para editar o agregar más opciones */}
-      <div className="w-full mt-4">
-        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">
-          Opciones de la ruleta (una por línea):
-        </label>
-        <textarea
-          rows={5}
-          value={opcionesTexto}
-          onChange={(e) => setOpcionesTexto(e.target.value)}
-          disabled={girando}
-          className="w-full p-3 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:outline-none focus:border-emerald-600 shadow-sm resize-none font-medium"
-        />
-      </div>
-
-      {/* Modal de Resultado */}
-      <AnimatePresence>
-        {ganador && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          >
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl border border-emerald-100">
-              <span className="text-3xl">🎯</span>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-2 mb-1">
-                Resultado
-              </h3>
-              <p className="text-xl font-black text-emerald-700 my-3">
-                {ganador}
-              </p>
-              <button
-                onClick={() => setGanador(null)}
-                className="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors shadow-md text-sm"
-              >
-                ¡Probar otra vez!
-              </button>
-            </div>
-          </motion.div>
+        {gameOver && (
+          <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-4 z-50">
+            <h1 className="text-[#ff4757] text-4xl font-bold m-0">¡JUEGO TERMINADO!</h1>
+            <p className="text-xl">Puntuación Final: <span>{score}</span></p>
+            <button 
+              onClick={restartGame}
+              className="px-6 py-3 text-lg bg-[#2ed573] hover:bg-[#26af5f] text-white border-none rounded cursor-pointer transition-transform hover:scale-105"
+            >
+              Jugar de Nuevo
+            </button>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+      </div>
+    </main>
   )
 }
