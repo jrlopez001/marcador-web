@@ -23,7 +23,7 @@ export default function Home() {
   scoreRef.current = score
   gameOverRef.current = gameOver
 
-  // Cargar las 6 imágenes PNG desde la carpeta /public
+  // Cargar las imágenes PNG desde la carpeta /public
   useEffect(() => {
     const imageNames = [
       'diablo.png',
@@ -38,6 +38,7 @@ export default function Home() {
     imageNames.forEach((name) => {
       const img = new Image()
       img.src = `/${name}`
+      img.onerror = () => console.error(`No se pudo cargar la imagen: /${name}`)
       loaded.push(img)
     })
     imagesRef.current = loaded
@@ -58,7 +59,6 @@ export default function Home() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    // Añadimos el signo '!' para asegurar a TypeScript que ctx no es nulo
     const ctx = canvas.getContext('2d')!
     if (!ctx) return
 
@@ -88,7 +88,7 @@ export default function Home() {
       image: HTMLImageElement
 
       constructor() {
-        this.size = 70
+        this.size = 80 // Tamaño de los rostros
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
@@ -104,7 +104,8 @@ export default function Home() {
 
       draw() {
         ctx.save()
-        if (this.image && this.image.complete && this.image.naturalWidth !== 0) {
+        // Dibuja directamente la imagen PNG del rostro
+        if (this.image && this.image.complete) {
           ctx.drawImage(
             this.image,
             this.x - this.size / 2,
@@ -112,14 +113,6 @@ export default function Home() {
             this.size,
             this.size
           )
-        } else {
-          ctx.beginPath()
-          ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2)
-          ctx.fillStyle = '#ffe0bd'
-          ctx.fill()
-          ctx.lineWidth = 2
-          ctx.strokeStyle = '#d4a373'
-          ctx.stroke()
         }
         ctx.restore()
       }
