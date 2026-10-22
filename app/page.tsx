@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 export default function Home() {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
+  const [maxLives, setMaxLives] = useState(5)
   const [gameOver, setGameOver] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [bgThemeIndex, setBgThemeIndex] = useState(0)
@@ -261,7 +262,6 @@ export default function Home() {
       imageObj: { name: string; img: HTMLImageElement }
       
       alpha: number = 1
-      // 🌟 Desvanecimiento aún más pausado
       fadeSpeed: number = 0.003 + Math.random() * 0.003
       fadingOut: boolean = true
 
@@ -270,13 +270,11 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        // 🌟 Caída un poco más lenta
         this.speed = 2.8 + Math.random() * 1.8 + scoreRef.current / 100
         
         const imgs = imagesRef.current
         this.imageObj = imgs[Math.floor(Math.random() * imgs.length)]
 
-        // Activar rayos aleatorios si sale Frankenstein o de forma esporádica
         if (this.imageObj.name === 'frankenstein.png' || Math.random() < 0.25) {
           lightningTimerRef.current = 35
         }
@@ -740,7 +738,7 @@ export default function Home() {
           createPotionEffect(p.x, p.y)
           potions.splice(i, 1)
 
-          setLives(prev => Math.min(prev + 1, 3))
+          setLives(prev => Math.min(prev + 1, maxLives))
           if (spawnIntervalRef.current > 30) {
             spawnIntervalRef.current -= 8
           }
@@ -821,14 +819,13 @@ export default function Home() {
         drawHorrorBackground()
 
         if (!isPausedRef.current) {
-          // 🌟 Eventos aleatorios de terror (Rayos o Apagones totales)
           randomEffectTimerRef.current++
           if (randomEffectTimerRef.current > 350) {
             const randChance = Math.random()
             if (randChance < 0.5) {
-              lightningTimerRef.current = 25 // Rayo distorsionador
+              lightningTimerRef.current = 25
             } else {
-              blackoutTimerRef.current = 45 // Apagón total de pantalla
+              blackoutTimerRef.current = 10 // 🌟 Apagón ultrarrápido de milisegundos (10 frames)
             }
             randomEffectTimerRef.current = 0
           }
@@ -846,13 +843,11 @@ export default function Home() {
             }
           }
 
-          // 🌟 Dibujar efectos de Rayos (Distorsión eléctrica)
           if (lightningTimerRef.current > 0) {
             lightningTimerRef.current--
             ctx.save()
             ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(100, 200, 255, 0.75)'
             ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-            // Rayo en zigzag aleatorio
             ctx.strokeStyle = '#ffffff'
             ctx.lineWidth = 4
             ctx.beginPath()
@@ -866,15 +861,11 @@ export default function Home() {
             ctx.restore()
           }
 
-          // 🌟 Dibujar Apagones totales aleatorios
+          // 🌟 Apagón limpio de milisegundos sin texto
           if (blackoutTimerRef.current > 0) {
             blackoutTimerRef.current--
             ctx.fillStyle = '#000000'
             ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-            ctx.fillStyle = '#ff0000'
-            ctx.font = 'bold 28px monospace'
-            ctx.textAlign = 'center'
-            ctx.fillText('¡APAGÓN TOTAL EN LA OSCURIDAD!', canvasRef.current.width / 2, canvasRef.current.height / 2)
           }
 
           spawnTimerRef.current++
@@ -1019,14 +1010,12 @@ export default function Home() {
         </div>
 
         {isPaused && !gameOver && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 z-40 pointer-events-auto">
-            <h2 className="text-[#f1c40f] text-3xl font-bold drop-shadow-[0_0_10px_rgba(241,196,15,0.8)]">JUEGO EN PAUSA</h2>
-            <p className="text-sm text-gray-300">¡Fondo nítido listo para la captura!</p>
+          <div className="absolute inset-0 bg-transparent flex items-end justify-end p-6 z-40 pointer-events-none">
             <button 
               onClick={() => setIsPaused(false)}
-              className="px-6 py-2.5 bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded cursor-pointer transition-transform hover:scale-105 shadow-[0_0_10px_rgba(46,213,115,0.5)]"
+              className="px-5 py-2.5 bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded-lg cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_15px_rgba(46,213,115,0.7)]"
             >
-              Continuar Jugando
+              ▶️ Continuar
             </button>
           </div>
         )}
