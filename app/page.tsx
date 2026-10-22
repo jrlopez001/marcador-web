@@ -6,17 +6,21 @@ export default function Home() {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [gameOver, setGameOver] = useState(false)
+  const [bgThemeIndex, setBgThemeIndex] = useState(0)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const animationRef = useRef<number | null>(null)
 
   const targetsRef = useRef<any[]>([])
   const potionsRef = useRef<any[]>([])
+  const yellowPotionsRef = useRef<any[]>([])
   const particlesRef = useRef<any[]>([])
   const smokeParticlesRef = useRef<any[]>([])
   const fireParticlesRef = useRef<any[]>([])
+  const fallingGhostsRef = useRef<any[]>([])
   const starParticlesRef = useRef<any[]>([])
   const batsRef = useRef<any[]>([])
+  const flyingBatExplosionRef = useRef<any[]>([])
   const applesRef = useRef<any[]>([])
   const lightningTimerRef = useRef(0)
   const imagesRef = useRef<{ name: string; img: HTMLImageElement }[]>([])
@@ -26,12 +30,14 @@ export default function Home() {
   const livesRef = useRef(3)
   const gameOverRef = useRef(false)
   const spawnTimerRef = useRef(0)
-  const spawnIntervalRef = useRef(60)
+  const spawnIntervalRef = useRef(100) 
   const bgOffsetRef = useRef(0)
+  const bgThemeIndexRef = useRef(0)
 
   scoreRef.current = score
   livesRef.current = lives
   gameOverRef.current = gameOver
+  bgThemeIndexRef.current = bgThemeIndex
 
   useEffect(() => {
     const imageNames = [
@@ -59,19 +65,24 @@ export default function Home() {
     setScore(0)
     setLives(3)
     setGameOver(false)
+    setBgThemeIndex(0)
     scoreRef.current = 0
     livesRef.current = 3
     gameOverRef.current = false
+    bgThemeIndexRef.current = 0
     targetsRef.current = []
     potionsRef.current = []
+    yellowPotionsRef.current = []
     particlesRef.current = []
     smokeParticlesRef.current = []
     fireParticlesRef.current = []
+    fallingGhostsRef.current = []
     starParticlesRef.current = []
     batsRef.current = []
+    flyingBatExplosionRef.current = []
     applesRef.current = []
     lightningTimerRef.current = 0
-    spawnIntervalRef.current = 60
+    spawnIntervalRef.current = 100
     spawnTimerRef.current = 0
     bgOffsetRef.current = 0
   }
@@ -100,20 +111,156 @@ export default function Home() {
     }
     window.addEventListener('mousemove', handleMouseMove)
 
+    class ExplodingBat {
+      x: number
+      y: number
+      vx: number
+      vy: number
+      alpha: number = 1
+      decay: number = Math.random() * 0.02 + 0.015
+      angle: number
+
+      constructor(x: number, y: number) {
+        this.x = x
+        this.y = y
+        const angleRand = Math.random() * Math.PI * 2
+        const speed = Math.random() * 8 + 4
+        this.vx = Math.cos(angleRand) * speed
+        this.vy = Math.sin(angleRand) * speed
+        this.angle = angleRand
+      }
+
+      update() {
+        this.x += this.vx
+        this.y += this.vy
+        this.alpha -= this.decay
+      }
+
+      draw() {
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = Math.max(0, this.alpha)
+        currentCtx.fillStyle = '#111'
+        currentCtx.beginPath()
+        currentCtx.ellipse(this.x, this.y, 14, 7, this.angle, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.restore()
+      }
+    }
+
+    class YellowPotion {
+      size: number = 45
+      x: number
+      y: number
+      speed: number
+
+      constructor() {
+        const currentCanvas = canvasRef.current!
+        this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
+        this.y = -this.size
+        this.speed = 3 + Math.random() * 2
+      }
+
+      update() {
+        this.y += this.speed
+      }
+
+      draw() {
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+
+        currentCtx.fillStyle = '#f1c40f'
+        currentCtx.strokeStyle = '#2f3542'
+        currentCtx.lineWidth = 3
+
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y + 5, 20, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.stroke()
+
+        currentCtx.fillStyle = '#747d8c'
+        currentCtx.fillRect(this.x - 7, this.y - 16, 14, 11)
+
+        currentCtx.fillStyle = '#ffffff'
+        currentCtx.fillRect(this.x - 3, this.y - 2, 6, 2)
+        currentCtx.fillRect(this.x - 1, this.y - 4, 2, 6)
+
+        currentCtx.restore()
+      }
+    }
+
+    class FallingGhost {
+      x: number
+      y: number
+      size: number
+      speedY: number
+      alpha: number
+      wobble: number
+      wobbleSpeed: number
+
+      constructor() {
+        const currentCanvas = canvasRef.current!
+        this.x = Math.random() * currentCanvas.width
+        this.y = -40
+        this.size = Math.random() * 15 + 25
+        this.speedY = Math.random() * 1.5 + 1
+        this.alpha = Math.random() * 0.25 + 0.15
+        this.wobble = Math.random() * Math.PI * 2
+        this.wobbleSpeed = 0.03
+      }
+
+      update() {
+        this.y += this.speedY
+        this.wobble += this.wobbleSpeed
+        this.x += Math.sin(this.wobble) * 0.8
+      }
+
+      draw() {
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = this.alpha
+        currentCtx.fillStyle = '#e0e0e0'
+
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, this.size * 0.5, Math.PI, 0, false)
+        currentCtx.lineTo(this.x + this.size * 0.5, this.y + this.size)
+        currentCtx.quadraticCurveTo(this.x + this.size * 0.25, this.y + this.size * 0.7, this.x, this.y + this.size)
+        currentCtx.quadraticCurveTo(this.x - this.size * 0.25, this.y + this.size * 0.7, this.x - this.size * 0.5, this.y + this.size)
+        currentCtx.closePath()
+        currentCtx.fill()
+
+        currentCtx.fillStyle = '#111'
+        currentCtx.beginPath()
+        currentCtx.arc(this.x - this.size * 0.15, this.y - this.size * 0.05, this.size * 0.08, 0, Math.PI * 2)
+        currentCtx.arc(this.x + this.size * 0.15, this.y - this.size * 0.05, this.size * 0.08, 0, Math.PI * 2)
+        currentCtx.fill()
+
+        currentCtx.restore()
+      }
+    }
+
     class Target {
       size: number
       x: number
       y: number
       speed: number
       imageObj: { name: string; img: HTMLImageElement }
+      
+      alpha: number = 1
+      // 🌟 Desvanecimiento más lento (fadeSpeed más pequeño)
+      fadeSpeed: number = 0.012 + Math.random() * 0.01
+      fadingOut: boolean = true
 
       constructor() {
-        // ⬇️ TAMAÑO AUMENTADO (Entre 130px y 180px) para que se aprecie muy bien el rostro
-        this.size = Math.floor(Math.random() * 50) + 130
+        // 🌟 Imágenes más grandes (entre 110px y 155px)
+        this.size = Math.floor(Math.random() * 45) + 110
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 2.5 + Math.random() * 2.5 + scoreRef.current / 80
+        this.speed = 1.8 + Math.random() * 1.8 + scoreRef.current / 100
         
         const imgs = imagesRef.current
         this.imageObj = imgs[Math.floor(Math.random() * imgs.length)]
@@ -125,12 +272,33 @@ export default function Home() {
 
       update() {
         this.y += this.speed
+
+        if (this.fadingOut) {
+          this.alpha -= this.fadeSpeed
+          if (this.alpha <= 0.05) {
+            this.alpha = 0.05
+            this.fadingOut = false
+
+            const currentCanvas = canvasRef.current!
+            this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
+            this.y = Math.max(0, this.y + (Math.random() * 100 - 150))
+          }
+        } else {
+          this.alpha += this.fadeSpeed
+          if (this.alpha >= 1) {
+            this.alpha = 1
+            this.fadingOut = true
+          }
+        }
       }
 
       draw() {
         const currentCtx = canvasRef.current?.getContext('2d')
         if (!currentCtx) return
         currentCtx.save()
+        
+        currentCtx.globalAlpha = Math.max(0.05, this.alpha)
+
         if (this.imageObj && this.imageObj.img.complete) {
           currentCtx.drawImage(
             this.imageObj.img,
@@ -145,7 +313,7 @@ export default function Home() {
     }
 
     class Potion {
-      size: number = 55 // Poción también un poco más grande
+      size: number = 45
       x: number
       y: number
       speed: number
@@ -171,16 +339,16 @@ export default function Home() {
         currentCtx.lineWidth = 3
 
         currentCtx.beginPath()
-        currentCtx.arc(this.x, this.y + 6, 22, 0, Math.PI * 2)
+        currentCtx.arc(this.x, this.y + 5, 20, 0, Math.PI * 2)
         currentCtx.fill()
         currentCtx.stroke()
 
         currentCtx.fillStyle = '#747d8c'
-        currentCtx.fillRect(this.x - 8, this.y - 18, 16, 12)
+        currentCtx.fillRect(this.x - 7, this.y - 16, 14, 11)
 
         currentCtx.fillStyle = '#ffffff'
-        currentCtx.fillRect(this.x - 4, this.y - 2, 8, 3)
-        currentCtx.fillRect(this.x - 1, -this.y - 5, 3, 8)
+        currentCtx.fillRect(this.x - 3, this.y - 2, 6, 2)
+        currentCtx.fillRect(this.x - 1, this.y - 4, 2, 6)
 
         currentCtx.restore()
       }
@@ -189,7 +357,7 @@ export default function Home() {
     class Particle {
       x: number
       y: number
-      radius: number = Math.random() * 6 + 3
+      radius: number = Math.random() * 5 + 2
       color: string = `hsl(${Math.random() * 40 + 10}, 100%, 50%)`
       vx: number = (Math.random() - 0.5) * 8
       vy: number = (Math.random() - 0.5) * 8
@@ -232,7 +400,7 @@ export default function Home() {
       constructor(x: number, y: number) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 80 + 50
+        this.radius = Math.random() * 70 + 45
         this.vx = (Math.random() - 0.5) * 2
         this.vy = (Math.random() - 0.5) * 2
         this.alpha = 0.85
@@ -261,7 +429,7 @@ export default function Home() {
     class FireParticle {
       x: number
       y: number
-      radius: number
+      size: number
       vx: number
       vy: number
       alpha: number
@@ -271,11 +439,11 @@ export default function Home() {
       constructor(x: number, y: number) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 20 + 12
-        this.vx = (Math.random() - 0.5) * 6
-        this.vy = (Math.random() - 1) * 6 - 2
+        this.size = Math.random() * 10 + 6
+        this.vx = (Math.random() - 0.5) * 4
+        this.vy = (Math.random() - 1) * 4 - 1
         this.alpha = 1
-        this.decay = Math.random() * 0.04 + 0.02
+        this.decay = Math.random() * 0.035 + 0.015
         const colors = ['#ff2e00', '#ff6b00', '#ffa800', '#ffea00']
         this.color = colors[Math.floor(Math.random() * colors.length)]
       }
@@ -283,7 +451,7 @@ export default function Home() {
       update() {
         this.x += this.vx
         this.y += this.vy
-        this.radius *= 0.95
+        this.size *= 0.93
         this.alpha -= this.decay
       }
 
@@ -292,10 +460,16 @@ export default function Home() {
         if (!currentCtx) return
         currentCtx.save()
         currentCtx.globalAlpha = Math.max(0, this.alpha)
-        currentCtx.beginPath()
-        currentCtx.arc(this.x, this.y, Math.max(1, this.radius), 0, Math.PI * 2)
         currentCtx.fillStyle = this.color
+
+        const s = Math.max(2, this.size)
+        currentCtx.beginPath()
+        currentCtx.moveTo(this.x, this.y - s * 1.4)
+        currentCtx.quadraticCurveTo(this.x + s, this.y, this.x + s * 0.6, this.y + s)
+        currentCtx.quadraticCurveTo(this.x, this.y + s * 1.3, this.x - s * 0.6, this.y + s)
+        currentCtx.quadraticCurveTo(this.x - s, this.y, this.x, this.y - s * 1.4)
         currentCtx.fill()
+
         currentCtx.restore()
       }
     }
@@ -313,7 +487,7 @@ export default function Home() {
       constructor(x: number, y: number, isMagicPrincess: boolean = false) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 10 + 5
+        this.radius = Math.random() * 8 + 4
         this.vx = (Math.random() - 0.5) * 7
         this.vy = (Math.random() - 0.5) * 7
         this.alpha = 1
@@ -353,7 +527,7 @@ export default function Home() {
         this.centerX = centerX
         this.centerY = centerY
         this.angle = Math.random() * Math.PI * 2
-        this.distance = Math.random() * 50 + 60 // Adaptado al nuevo tamaño de rostro
+        this.distance = Math.random() * 55 + 45
         this.speed = 0.08
         this.x = this.centerX + Math.cos(this.angle) * this.distance
         this.y = this.centerY + Math.sin(this.angle) * this.distance
@@ -367,13 +541,14 @@ export default function Home() {
         this.y = this.centerY + Math.sin(this.angle) * this.distance
       }
 
-      draw() {
+      draw(parentAlpha: number) {
         const currentCtx = canvasRef.current?.getContext('2d')
         if (!currentCtx) return
         currentCtx.save()
+        currentCtx.globalAlpha = parentAlpha
         currentCtx.fillStyle = '#111'
         currentCtx.beginPath()
-        currentCtx.ellipse(this.x, this.y, 14, 7, this.angle, 0, Math.PI * 2)
+        currentCtx.ellipse(this.x, this.y, 12, 6, this.angle, 0, Math.PI * 2)
         currentCtx.fill()
         currentCtx.restore()
       }
@@ -387,13 +562,13 @@ export default function Home() {
       speed: number
       centerX: number
       centerY: number
-      size: number = 30
+      size: number = 28
 
       constructor(centerX: number, centerY: number, index: number, total: number) {
         this.centerX = centerX
         this.centerY = centerY
         this.angle = (index / total) * Math.PI * 2
-        this.distance = 95 // Adaptado al tamaño más grande de la reina
+        this.distance = 80
         this.speed = 0.04
         this.x = this.centerX + Math.cos(this.angle) * this.distance
         this.y = this.centerY + Math.sin(this.angle) * this.distance
@@ -407,10 +582,11 @@ export default function Home() {
         this.y = this.centerY + Math.sin(this.angle) * this.distance
       }
 
-      draw() {
+      draw(parentAlpha: number) {
         const currentCtx = canvasRef.current?.getContext('2d')
         if (!currentCtx) return
         currentCtx.save()
+        currentCtx.globalAlpha = parentAlpha
         currentCtx.fillStyle = '#ff3838'
         currentCtx.beginPath()
         currentCtx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2)
@@ -431,6 +607,12 @@ export default function Home() {
       }
     }
 
+    const createBatExplosion = (x: number, y: number) => {
+      for (let i = 0; i < 20; i++) {
+        flyingBatExplosionRef.current.push(new ExplodingBat(x, y))
+      }
+    }
+
     const createPotionEffect = (x: number, y: number) => {
       for (let i = 0; i < 30; i++) {
         particlesRef.current.push(new Particle(x, y))
@@ -444,7 +626,7 @@ export default function Home() {
     }
 
     const createFire = (x: number, y: number) => {
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 20; i++) {
         fireParticlesRef.current.push(new FireParticle(x, y))
       }
     }
@@ -455,19 +637,27 @@ export default function Home() {
       }
     }
 
+    const themes = [
+      { top: '#050205', mid: '#120404', bot: '#1b0000' },
+      { top: '#02050f', mid: '#040b1a', bot: '#001429' },
+      { top: '#060f05', mid: '#0a1c09', bot: '#0f2b0d' },
+      { top: '#0d0212', mid: '#1a0424', bot: '#2b003b' }
+    ]
+
     const drawHorrorBackground = () => {
       const w = canvas.width
       const h = canvas.height
+      const currentTheme = themes[bgThemeIndexRef.current % themes.length]
 
       const bgGrad = ctx.createLinearGradient(0, 0, 0, h)
-      bgGrad.addColorStop(0, '#050205')
-      bgGrad.addColorStop(0.5, '#120404')
-      bgGrad.addColorStop(1, '#1b0000')
+      bgGrad.addColorStop(0, currentTheme.top)
+      bgGrad.addColorStop(0.5, currentTheme.mid)
+      bgGrad.addColorStop(1, currentTheme.bot)
       ctx.fillStyle = bgGrad
       ctx.fillRect(0, 0, w, h)
 
       bgOffsetRef.current += 0.5
-      ctx.fillStyle = 'rgba(50, 50, 50, 0.25)'
+      ctx.fillStyle = 'rgba(50, 50, 50, 0.2)'
       for (let i = 0; i < 3; i++) {
         const fogX = (i * 400 - (bgOffsetRef.current % 400))
         ctx.beginPath()
@@ -539,9 +729,26 @@ export default function Home() {
           potions.splice(i, 1)
 
           setLives(prev => Math.min(prev + 1, 3))
-          if (spawnIntervalRef.current > 12) {
-            spawnIntervalRef.current -= 5
+          if (spawnIntervalRef.current > 30) {
+            spawnIntervalRef.current -= 8
           }
+          return
+        }
+      }
+
+      const yellowPotions = yellowPotionsRef.current
+      for (let i = yellowPotions.length - 1; i >= 0; i--) {
+        const yp = yellowPotions[i]
+        if (
+          mx >= yp.x - yp.size / 2 &&
+          mx <= yp.x + yp.size / 2 &&
+          my >= yp.y - yp.size / 2 &&
+          my <= yp.y + yp.size / 2
+        ) {
+          createPotionEffect(yp.x, yp.y)
+          yellowPotions.splice(i, 1)
+
+          setBgThemeIndex(prev => prev + 1)
           return
         }
       }
@@ -550,7 +757,7 @@ export default function Home() {
         const apple = applesRef.current[i]
         const dx = mx - apple.x
         const dy = my - apple.y
-        if (Math.sqrt(dx * dx + dy * dy) < 18) {
+        if (Math.sqrt(dx * dx + dy * dy) < 16) {
           createExplosion(apple.x, apple.y)
           return
         }
@@ -559,6 +766,9 @@ export default function Home() {
       const targets = targetsRef.current
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i]
+        
+        if (t.alpha < 0.25) continue
+
         if (
           mx >= t.x - t.size / 2 &&
           mx <= t.x + t.size / 2 &&
@@ -567,6 +777,9 @@ export default function Home() {
         ) {
           createExplosion(t.x, t.y)
 
+          if (t.imageObj && t.imageObj.name === 'vampiro.png') {
+            createBatExplosion(t.x, t.y)
+          }
           if (t.imageObj && t.imageObj.name === 'calabaza.png') {
             createPumpkinSmoke(t.x, t.y)
           }
@@ -595,6 +808,19 @@ export default function Home() {
       if (!gameOverRef.current) {
         drawHorrorBackground()
 
+        if (Math.random() < 0.04) {
+          fallingGhostsRef.current.push(new FallingGhost())
+        }
+
+        for (let i = fallingGhostsRef.current.length - 1; i >= 0; i--) {
+          const fg = fallingGhostsRef.current[i]
+          fg.update()
+          fg.draw()
+          if (fg.y > canvasRef.current.height + 50) {
+            fallingGhostsRef.current.splice(i, 1)
+          }
+        }
+
         if (lightningTimerRef.current > 0) {
           lightningTimerRef.current--
           if (Math.random() > 0.5) {
@@ -605,13 +831,16 @@ export default function Home() {
 
         spawnTimerRef.current++
         if (spawnTimerRef.current >= spawnIntervalRef.current) {
-          if (Math.random() < 0.125) {
+          const rand = Math.random()
+          if (rand < 0.08) {
             potionsRef.current.push(new Potion())
+          } else if (rand < 0.16) {
+            yellowPotionsRef.current.push(new YellowPotion())
           } else {
             targetsRef.current.push(new Target())
           }
           spawnTimerRef.current = 0
-          if (spawnIntervalRef.current > 15) spawnIntervalRef.current -= 0.8
+          if (spawnIntervalRef.current > 35) spawnIntervalRef.current -= 0.5
         }
 
         for (let i = potionsRef.current.length - 1; i >= 0; i--) {
@@ -620,6 +849,15 @@ export default function Home() {
           p.draw()
           if (p.y > canvasRef.current.height + p.size) {
             potionsRef.current.splice(i, 1)
+          }
+        }
+
+        for (let i = yellowPotionsRef.current.length - 1; i >= 0; i--) {
+          const yp = yellowPotionsRef.current[i]
+          yp.update()
+          yp.draw()
+          if (yp.y > canvasRef.current.height + yp.size) {
+            yellowPotionsRef.current.splice(i, 1)
           }
         }
 
@@ -644,6 +882,13 @@ export default function Home() {
           if (st.alpha <= 0) starParticlesRef.current.splice(i, 1)
         }
 
+        for (let i = flyingBatExplosionRef.current.length - 1; i >= 0; i--) {
+          const eb = flyingBatExplosionRef.current[i]
+          eb.update()
+          eb.draw()
+          if (eb.alpha <= 0) flyingBatExplosionRef.current.splice(i, 1)
+        }
+
         batsRef.current = []
         applesRef.current = []
 
@@ -657,15 +902,15 @@ export default function Home() {
             const b2 = new Bat(t.x, t.y)
             b1.update(t.x, t.y)
             b2.update(t.x, t.y)
-            b1.draw()
-            b2.draw()
+            b1.draw(t.alpha)
+            b2.draw(t.alpha)
           }
 
           if (t.imageObj.name === 'reina.png') {
             for (let j = 0; j < 3; j++) {
               const apple = new ShieldApple(t.x, t.y, j, 3)
               apple.update(t.x, t.y)
-              apple.draw()
+              apple.draw(t.alpha)
               applesRef.current.push(apple)
             }
           }
