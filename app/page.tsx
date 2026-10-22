@@ -30,7 +30,7 @@ export default function Home() {
   const livesRef = useRef(3)
   const gameOverRef = useRef(false)
   const spawnTimerRef = useRef(0)
-  const spawnIntervalRef = useRef(90) // 🌟 Intervalo de aparición un poco más ágil
+  const spawnIntervalRef = useRef(80) // 🌟 Aparición más frecuente acorde a la velocidad
   const bgOffsetRef = useRef(0)
   const bgThemeIndexRef = useRef(0)
 
@@ -82,7 +82,7 @@ export default function Home() {
     flyingBatExplosionRef.current = []
     applesRef.current = []
     lightningTimerRef.current = 0
-    spawnIntervalRef.current = 90
+    spawnIntervalRef.current = 80
     spawnTimerRef.current = 0
     bgOffsetRef.current = 0
   }
@@ -159,7 +159,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 3.5 + Math.random() * 2
+        this.speed = 5 + Math.random() * 2.5
       }
 
       update() {
@@ -258,8 +258,8 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        // 🌟 Velocidad un poco más rápida
-        this.speed = 2.4 + Math.random() * 2.0 + scoreRef.current / 90
+        // 🚀 Velocidad de caída bastante más rápida
+        this.speed = 4.5 + Math.random() * 2.5 + scoreRef.current / 80
         
         const imgs = imagesRef.current
         this.imageObj = imgs[Math.floor(Math.random() * imgs.length)]
@@ -321,7 +321,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 3.5 + Math.random() * 2
+        this.speed = 5 + Math.random() * 2.5
       }
 
       update() {
@@ -766,7 +766,7 @@ export default function Home() {
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i]
         
-        // 🌟 REGLA NUEVA: Solo se pueden eliminar si ya cruzaron la mitad de la pantalla (y >= canvas.height / 2) y están visibles
+        // Solo vulnerables en la mitad inferior y visibles
         if (t.y < canvas.height / 2 || t.alpha < 0.25) continue
 
         if (
