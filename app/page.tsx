@@ -6,6 +6,7 @@ export default function Home() {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [gameOver, setGameOver] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [bgThemeIndex, setBgThemeIndex] = useState(0)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -22,21 +23,27 @@ export default function Home() {
   const batsRef = useRef<any[]>([])
   const flyingBatExplosionRef = useRef<any[]>([])
   const applesRef = useRef<any[]>([])
+  
   const lightningTimerRef = useRef(0)
+  const blackoutTimerRef = useRef(0)
+  const randomEffectTimerRef = useRef(0)
+
   const imagesRef = useRef<{ name: string; img: HTMLImageElement }[]>([])
   
   const mousePosRef = useRef({ x: 0, y: 0 })
   const scoreRef = useRef(0)
   const livesRef = useRef(3)
   const gameOverRef = useRef(false)
+  const isPausedRef = useRef(false)
   const spawnTimerRef = useRef(0)
-  const spawnIntervalRef = useRef(80) // 🌟 Aparición más frecuente acorde a la velocidad
+  const spawnIntervalRef = useRef(90) 
   const bgOffsetRef = useRef(0)
   const bgThemeIndexRef = useRef(0)
 
   scoreRef.current = score
   livesRef.current = lives
   gameOverRef.current = gameOver
+  isPausedRef.current = isPaused
   bgThemeIndexRef.current = bgThemeIndex
 
   useEffect(() => {
@@ -65,10 +72,12 @@ export default function Home() {
     setScore(0)
     setLives(3)
     setGameOver(false)
+    setIsPaused(false)
     setBgThemeIndex(0)
     scoreRef.current = 0
     livesRef.current = 3
     gameOverRef.current = false
+    isPausedRef.current = false
     bgThemeIndexRef.current = 0
     targetsRef.current = []
     potionsRef.current = []
@@ -82,7 +91,9 @@ export default function Home() {
     flyingBatExplosionRef.current = []
     applesRef.current = []
     lightningTimerRef.current = 0
-    spawnIntervalRef.current = 80
+    blackoutTimerRef.current = 0
+    randomEffectTimerRef.current = 0
+    spawnIntervalRef.current = 90
     spawnTimerRef.current = 0
     bgOffsetRef.current = 0
   }
@@ -159,7 +170,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 5 + Math.random() * 2.5
+        this.speed = 3.5 + Math.random() * 2
       }
 
       update() {
@@ -250,7 +261,8 @@ export default function Home() {
       imageObj: { name: string; img: HTMLImageElement }
       
       alpha: number = 1
-      fadeSpeed: number = 0.012 + Math.random() * 0.01
+      // 🌟 Desvanecimiento aún más pausado
+      fadeSpeed: number = 0.003 + Math.random() * 0.003
       fadingOut: boolean = true
 
       constructor() {
@@ -258,14 +270,15 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        // 🚀 Velocidad de caída bastante más rápida
-        this.speed = 4.5 + Math.random() * 2.5 + scoreRef.current / 80
+        // 🌟 Caída un poco más lenta
+        this.speed = 2.8 + Math.random() * 1.8 + scoreRef.current / 100
         
         const imgs = imagesRef.current
         this.imageObj = imgs[Math.floor(Math.random() * imgs.length)]
 
-        if (this.imageObj.name === 'frankenstein.png') {
-          lightningTimerRef.current = 40
+        // Activar rayos aleatorios si sale Frankenstein o de forma esporádica
+        if (this.imageObj.name === 'frankenstein.png' || Math.random() < 0.25) {
+          lightningTimerRef.current = 35
         }
       }
 
@@ -280,7 +293,7 @@ export default function Home() {
 
             const currentCanvas = canvasRef.current!
             this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
-            this.y = Math.max(0, this.y + (Math.random() * 100 - 150))
+            this.y = Math.max(0, this.y - (Math.random() * 250 + 100))
           }
         } else {
           this.alpha += this.fadeSpeed
@@ -296,7 +309,7 @@ export default function Home() {
         if (!currentCtx) return
         currentCtx.save()
         
-        currentCtx.globalAlpha = Math.max(0.05, this.alpha)
+        currentCtx.globalAlpha = isPausedRef.current ? 1 : Math.max(0.05, this.alpha)
 
         if (this.imageObj && this.imageObj.img.complete) {
           currentCtx.drawImage(
@@ -321,7 +334,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 5 + Math.random() * 2.5
+        this.speed = 3.5 + Math.random() * 2
       }
 
       update() {
@@ -711,7 +724,7 @@ export default function Home() {
     }
 
     const handleMouseDown = () => {
-      if (gameOverRef.current) return
+      if (gameOverRef.current || isPausedRef.current) return
 
       const { x: mx, y: my } = mousePosRef.current
 
@@ -766,7 +779,6 @@ export default function Home() {
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i]
         
-        // Solo vulnerables en la mitad inferior y visibles
         if (t.y < canvas.height / 2 || t.alpha < 0.25) continue
 
         if (
@@ -808,130 +820,168 @@ export default function Home() {
       if (!gameOverRef.current) {
         drawHorrorBackground()
 
-        if (Math.random() < 0.04) {
-          fallingGhostsRef.current.push(new FallingGhost())
-        }
-
-        for (let i = fallingGhostsRef.current.length - 1; i >= 0; i--) {
-          const fg = fallingGhostsRef.current[i]
-          fg.update()
-          fg.draw()
-          if (fg.y > canvasRef.current.height + 50) {
-            fallingGhostsRef.current.splice(i, 1)
-          }
-        }
-
-        if (lightningTimerRef.current > 0) {
-          lightningTimerRef.current--
-          if (Math.random() > 0.5) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'
-            ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-          }
-        }
-
-        spawnTimerRef.current++
-        if (spawnTimerRef.current >= spawnIntervalRef.current) {
-          const rand = Math.random()
-          if (rand < 0.08) {
-            potionsRef.current.push(new Potion())
-          } else if (rand < 0.16) {
-            yellowPotionsRef.current.push(new YellowPotion())
-          } else {
-            targetsRef.current.push(new Target())
-          }
-          spawnTimerRef.current = 0
-          if (spawnIntervalRef.current > 30) spawnIntervalRef.current -= 0.5
-        }
-
-        for (let i = potionsRef.current.length - 1; i >= 0; i--) {
-          const p = potionsRef.current[i]
-          p.update()
-          p.draw()
-          if (p.y > canvasRef.current.height + p.size) {
-            potionsRef.current.splice(i, 1)
-          }
-        }
-
-        for (let i = yellowPotionsRef.current.length - 1; i >= 0; i--) {
-          const yp = yellowPotionsRef.current[i]
-          yp.update()
-          yp.draw()
-          if (yp.y > canvasRef.current.height + yp.size) {
-            yellowPotionsRef.current.splice(i, 1)
-          }
-        }
-
-        for (let i = smokeParticlesRef.current.length - 1; i >= 0; i--) {
-          const s = smokeParticlesRef.current[i]
-          s.update()
-          s.draw()
-          if (s.alpha <= 0) smokeParticlesRef.current.splice(i, 1)
-        }
-
-        for (let i = fireParticlesRef.current.length - 1; i >= 0; i--) {
-          const f = fireParticlesRef.current[i]
-          f.update()
-          f.draw()
-          if (f.alpha <= 0) fireParticlesRef.current.splice(i, 1)
-        }
-
-        for (let i = starParticlesRef.current.length - 1; i >= 0; i--) {
-          const st = starParticlesRef.current[i]
-          st.update()
-          st.draw()
-          if (st.alpha <= 0) starParticlesRef.current.splice(i, 1)
-        }
-
-        for (let i = flyingBatExplosionRef.current.length - 1; i >= 0; i--) {
-          const eb = flyingBatExplosionRef.current[i]
-          eb.update()
-          eb.draw()
-          if (eb.alpha <= 0) flyingBatExplosionRef.current.splice(i, 1)
-        }
-
-        batsRef.current = []
-        applesRef.current = []
-
-        for (let i = targetsRef.current.length - 1; i >= 0; i--) {
-          const t = targetsRef.current[i]
-          t.update()
-          t.draw()
-
-          if (t.imageObj.name === 'vampiro.png') {
-            const b1 = new Bat(t.x, t.y)
-            const b2 = new Bat(t.x, t.y)
-            b1.update(t.x, t.y)
-            b2.update(t.x, t.y)
-            b1.draw(t.alpha)
-            b2.draw(t.alpha)
+        if (!isPausedRef.current) {
+          // 🌟 Eventos aleatorios de terror (Rayos o Apagones totales)
+          randomEffectTimerRef.current++
+          if (randomEffectTimerRef.current > 350) {
+            const randChance = Math.random()
+            if (randChance < 0.5) {
+              lightningTimerRef.current = 25 // Rayo distorsionador
+            } else {
+              blackoutTimerRef.current = 45 // Apagón total de pantalla
+            }
+            randomEffectTimerRef.current = 0
           }
 
-          if (t.imageObj.name === 'reina.png') {
-            for (let j = 0; j < 3; j++) {
-              const apple = new ShieldApple(t.x, t.y, j, 3)
-              apple.update(t.x, t.y)
-              apple.draw(t.alpha)
-              applesRef.current.push(apple)
+          if (Math.random() < 0.04) {
+            fallingGhostsRef.current.push(new FallingGhost())
+          }
+
+          for (let i = fallingGhostsRef.current.length - 1; i >= 0; i--) {
+            const fg = fallingGhostsRef.current[i]
+            fg.update()
+            fg.draw()
+            if (fg.y > canvasRef.current.height + 50) {
+              fallingGhostsRef.current.splice(i, 1)
             }
           }
 
-          if (t.y > canvasRef.current.height + t.size) {
-            targetsRef.current.splice(i, 1)
-            setLives(prev => {
-              const newLives = prev - 1
-              if (newLives <= 0) {
-                setGameOver(true)
-              }
-              return newLives
-            })
+          // 🌟 Dibujar efectos de Rayos (Distorsión eléctrica)
+          if (lightningTimerRef.current > 0) {
+            lightningTimerRef.current--
+            ctx.save()
+            ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(100, 200, 255, 0.75)'
+            ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+            // Rayo en zigzag aleatorio
+            ctx.strokeStyle = '#ffffff'
+            ctx.lineWidth = 4
+            ctx.beginPath()
+            let rx = Math.random() * canvasRef.current.width
+            ctx.moveTo(rx, 0)
+            for (let ry = 50; ry < canvasRef.current.height; ry += 80) {
+              rx += (Math.random() - 0.5) * 200
+              ctx.lineTo(rx, ry)
+            }
+            ctx.stroke()
+            ctx.restore()
           }
-        }
 
-        for (let i = particlesRef.current.length - 1; i >= 0; i--) {
-          const p = particlesRef.current[i]
-          p.update()
-          p.draw()
-          if (p.alpha <= 0) particlesRef.current.splice(i, 1)
+          // 🌟 Dibujar Apagones totales aleatorios
+          if (blackoutTimerRef.current > 0) {
+            blackoutTimerRef.current--
+            ctx.fillStyle = '#000000'
+            ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+            ctx.fillStyle = '#ff0000'
+            ctx.font = 'bold 28px monospace'
+            ctx.textAlign = 'center'
+            ctx.fillText('¡APAGÓN TOTAL EN LA OSCURIDAD!', canvasRef.current.width / 2, canvasRef.current.height / 2)
+          }
+
+          spawnTimerRef.current++
+          if (spawnTimerRef.current >= spawnIntervalRef.current) {
+            const rand = Math.random()
+            if (rand < 0.08) {
+              potionsRef.current.push(new Potion())
+            } else if (rand < 0.16) {
+              yellowPotionsRef.current.push(new YellowPotion())
+            } else {
+              targetsRef.current.push(new Target())
+            }
+            spawnTimerRef.current = 0
+            if (spawnIntervalRef.current > 30) spawnIntervalRef.current -= 0.5
+          }
+
+          for (let i = potionsRef.current.length - 1; i >= 0; i--) {
+            const p = potionsRef.current[i]
+            p.update()
+            p.draw()
+            if (p.y > canvasRef.current.height + p.size) {
+              potionsRef.current.splice(i, 1)
+            }
+          }
+
+          for (let i = yellowPotionsRef.current.length - 1; i >= 0; i--) {
+            const yp = yellowPotionsRef.current[i]
+            yp.update()
+            yp.draw()
+            if (yp.y > canvasRef.current.height + yp.size) {
+              yellowPotionsRef.current.splice(i, 1)
+            }
+          }
+
+          for (let i = smokeParticlesRef.current.length - 1; i >= 0; i--) {
+            const s = smokeParticlesRef.current[i]
+            s.update()
+            s.draw()
+            if (s.alpha <= 0) smokeParticlesRef.current.splice(i, 1)
+          }
+
+          for (let i = fireParticlesRef.current.length - 1; i >= 0; i--) {
+            const f = fireParticlesRef.current[i]
+            f.update()
+            f.draw()
+            if (f.alpha <= 0) fireParticlesRef.current.splice(i, 1)
+          }
+
+          for (let i = starParticlesRef.current.length - 1; i >= 0; i--) {
+            const st = starParticlesRef.current[i]
+            st.update()
+            st.draw()
+            if (st.alpha <= 0) starParticlesRef.current.splice(i, 1)
+          }
+
+          for (let i = flyingBatExplosionRef.current.length - 1; i >= 0; i--) {
+            const eb = flyingBatExplosionRef.current[i]
+            eb.update()
+            eb.draw()
+            if (eb.alpha <= 0) flyingBatExplosionRef.current.splice(i, 1)
+          }
+
+          for (let i = targetsRef.current.length - 1; i >= 0; i--) {
+            const t = targetsRef.current[i]
+            t.update()
+            t.draw()
+
+            if (t.imageObj.name === 'vampiro.png') {
+              const b1 = new Bat(t.x, t.y)
+              const b2 = new Bat(t.x, t.y)
+              b1.update(t.x, t.y)
+              b2.update(t.x, t.y)
+              b1.draw(t.alpha)
+              b2.draw(t.alpha)
+            }
+
+            if (t.imageObj.name === 'reina.png') {
+              for (let j = 0; j < 3; j++) {
+                const apple = new ShieldApple(t.x, t.y, j, 3)
+                apple.update(t.x, t.y)
+                apple.draw(t.alpha)
+                applesRef.current.push(apple)
+              }
+            }
+
+            if (t.y > canvasRef.current.height + t.size) {
+              targetsRef.current.splice(i, 1)
+              setLives(prev => {
+                const newLives = prev - 1
+                if (newLives <= 0) {
+                  setGameOver(true)
+                }
+                return newLives
+              })
+            }
+          }
+
+          for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+            const p = particlesRef.current[i]
+            p.update()
+            p.draw()
+            if (p.alpha <= 0) particlesRef.current.splice(i, 1)
+          }
+        } else {
+          targetsRef.current.forEach(t => t.draw())
+          potionsRef.current.forEach(p => p.draw())
+          yellowPotionsRef.current.forEach(yp => yp.draw())
         }
 
         drawSpookyPumpkinCrosshair()
@@ -955,13 +1005,34 @@ export default function Home() {
       <div className="relative shadow-[0_0_25px_rgba(255,0,0,0.3)] border-4 border-[#331111] rounded-lg overflow-hidden">
         <canvas ref={canvasRef} className="block" />
         
-        <div className="absolute top-4 left-4 right-4 flex justify-between text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
-          <div>Puntos: <span id="score">{score}</span></div>
-          <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+          <div className="flex gap-6">
+            <div>Puntos: <span id="score">{score}</span></div>
+            <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
+          </div>
+          <button 
+            onClick={() => setIsPaused(prev => !prev)}
+            className="px-4 py-1.5 bg-[#4a1515] hover:bg-[#6b1d1d] text-white text-sm font-bold border border-[#ff4757] rounded cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_8px_rgba(255,0,0,0.5)]"
+          >
+            {isPaused ? 'Reanudar' : 'Pausa ⏸️'}
+          </button>
         </div>
 
+        {isPaused && !gameOver && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 z-40 pointer-events-auto">
+            <h2 className="text-[#f1c40f] text-3xl font-bold drop-shadow-[0_0_10px_rgba(241,196,15,0.8)]">JUEGO EN PAUSA</h2>
+            <p className="text-sm text-gray-300">¡Fondo nítido listo para la captura!</p>
+            <button 
+              onClick={() => setIsPaused(false)}
+              className="px-6 py-2.5 bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded cursor-pointer transition-transform hover:scale-105 shadow-[0_0_10px_rgba(46,213,115,0.5)]"
+            >
+              Continuar Jugando
+            </button>
+          </div>
+        )}
+
         {gameOver && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-4 z-50">
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-4 z-50 pointer-events-auto">
             <h1 className="text-[#ff4757] text-4xl font-bold m-0 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">¡JUEGO TERMINADO!</h1>
             <p className="text-xl">Puntuación Final: <span>{score}</span></p>
             <button 
