@@ -30,7 +30,7 @@ export default function Home() {
   const livesRef = useRef(3)
   const gameOverRef = useRef(false)
   const spawnTimerRef = useRef(0)
-  const spawnIntervalRef = useRef(100) 
+  const spawnIntervalRef = useRef(90) // 🌟 Intervalo de aparición un poco más ágil
   const bgOffsetRef = useRef(0)
   const bgThemeIndexRef = useRef(0)
 
@@ -82,7 +82,7 @@ export default function Home() {
     flyingBatExplosionRef.current = []
     applesRef.current = []
     lightningTimerRef.current = 0
-    spawnIntervalRef.current = 100
+    spawnIntervalRef.current = 90
     spawnTimerRef.current = 0
     bgOffsetRef.current = 0
   }
@@ -159,7 +159,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 3 + Math.random() * 2
+        this.speed = 3.5 + Math.random() * 2
       }
 
       update() {
@@ -250,17 +250,16 @@ export default function Home() {
       imageObj: { name: string; img: HTMLImageElement }
       
       alpha: number = 1
-      // 🌟 Desvanecimiento más lento (fadeSpeed más pequeño)
       fadeSpeed: number = 0.012 + Math.random() * 0.01
       fadingOut: boolean = true
 
       constructor() {
-        // 🌟 Imágenes más grandes (entre 110px y 155px)
         this.size = Math.floor(Math.random() * 45) + 110
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 1.8 + Math.random() * 1.8 + scoreRef.current / 100
+        // 🌟 Velocidad un poco más rápida
+        this.speed = 2.4 + Math.random() * 2.0 + scoreRef.current / 90
         
         const imgs = imagesRef.current
         this.imageObj = imgs[Math.floor(Math.random() * imgs.length)]
@@ -322,7 +321,7 @@ export default function Home() {
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
-        this.speed = 3 + Math.random() * 2
+        this.speed = 3.5 + Math.random() * 2
       }
 
       update() {
@@ -767,7 +766,8 @@ export default function Home() {
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i]
         
-        if (t.alpha < 0.25) continue
+        // 🌟 REGLA NUEVA: Solo se pueden eliminar si ya cruzaron la mitad de la pantalla (y >= canvas.height / 2) y están visibles
+        if (t.y < canvas.height / 2 || t.alpha < 0.25) continue
 
         if (
           mx >= t.x - t.size / 2 &&
@@ -840,7 +840,7 @@ export default function Home() {
             targetsRef.current.push(new Target())
           }
           spawnTimerRef.current = 0
-          if (spawnIntervalRef.current > 35) spawnIntervalRef.current -= 0.5
+          if (spawnIntervalRef.current > 30) spawnIntervalRef.current -= 0.5
         }
 
         for (let i = potionsRef.current.length - 1; i >= 0; i--) {
