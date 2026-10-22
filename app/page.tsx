@@ -11,6 +11,7 @@ export default function Home() {
   const animationRef = useRef<number | null>(null)
 
   const targetsRef = useRef<any[]>([])
+  const potionsRef = useRef<any[]>([])
   const particlesRef = useRef<any[]>([])
   const smokeParticlesRef = useRef<any[]>([])
   const fireParticlesRef = useRef<any[]>([])
@@ -26,6 +27,7 @@ export default function Home() {
   const gameOverRef = useRef(false)
   const spawnTimerRef = useRef(0)
   const spawnIntervalRef = useRef(60)
+  const bgOffsetRef = useRef(0)
 
   scoreRef.current = score
   livesRef.current = lives
@@ -61,6 +63,7 @@ export default function Home() {
     livesRef.current = 3
     gameOverRef.current = false
     targetsRef.current = []
+    potionsRef.current = []
     particlesRef.current = []
     smokeParticlesRef.current = []
     fireParticlesRef.current = []
@@ -70,6 +73,7 @@ export default function Home() {
     lightningTimerRef.current = 0
     spawnIntervalRef.current = 60
     spawnTimerRef.current = 0
+    bgOffsetRef.current = 0
   }
 
   useEffect(() => {
@@ -104,7 +108,8 @@ export default function Home() {
       imageObj: { name: string; img: HTMLImageElement }
 
       constructor() {
-        this.size = Math.floor(Math.random() * 30) + 55
+        // ⬇️ TAMAÑO AUMENTADO (Entre 130px y 180px) para que se aprecie muy bien el rostro
+        this.size = Math.floor(Math.random() * 50) + 130
         const currentCanvas = canvasRef.current!
         this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
         this.y = -this.size
@@ -123,9 +128,11 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
         if (this.imageObj && this.imageObj.img.complete) {
-          ctx.drawImage(
+          currentCtx.drawImage(
             this.imageObj.img,
             this.x - this.size / 2,
             this.y - this.size / 2,
@@ -133,14 +140,56 @@ export default function Home() {
             this.size
           )
         }
-        ctx.restore()
+        currentCtx.restore()
+      }
+    }
+
+    class Potion {
+      size: number = 55 // Poción también un poco más grande
+      x: number
+      y: number
+      speed: number
+
+      constructor() {
+        const currentCanvas = canvasRef.current!
+        this.x = Math.random() * (currentCanvas.width - this.size * 2) + this.size
+        this.y = -this.size
+        this.speed = 3 + Math.random() * 2
+      }
+
+      update() {
+        this.y += this.speed
+      }
+
+      draw() {
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+
+        currentCtx.fillStyle = '#2ed573'
+        currentCtx.strokeStyle = '#2f3542'
+        currentCtx.lineWidth = 3
+
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y + 6, 22, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.stroke()
+
+        currentCtx.fillStyle = '#747d8c'
+        currentCtx.fillRect(this.x - 8, this.y - 18, 16, 12)
+
+        currentCtx.fillStyle = '#ffffff'
+        currentCtx.fillRect(this.x - 4, this.y - 2, 8, 3)
+        currentCtx.fillRect(this.x - 1, -this.y - 5, 3, 8)
+
+        currentCtx.restore()
       }
     }
 
     class Particle {
       x: number
       y: number
-      radius: number = Math.random() * 5 + 2
+      radius: number = Math.random() * 6 + 3
       color: string = `hsl(${Math.random() * 40 + 10}, 100%, 50%)`
       vx: number = (Math.random() - 0.5) * 8
       vy: number = (Math.random() - 0.5) * 8
@@ -159,13 +208,15 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, this.alpha)
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
-        ctx.fillStyle = this.color
-        ctx.fill()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = Math.max(0, this.alpha)
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+        currentCtx.fillStyle = this.color
+        currentCtx.fill()
+        currentCtx.restore()
       }
     }
 
@@ -181,7 +232,7 @@ export default function Home() {
       constructor(x: number, y: number) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 60 + 40
+        this.radius = Math.random() * 80 + 50
         this.vx = (Math.random() - 0.5) * 2
         this.vy = (Math.random() - 0.5) * 2
         this.alpha = 0.85
@@ -195,13 +246,15 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, this.alpha)
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
-        ctx.fillStyle = '#222'
-        ctx.fill()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = Math.max(0, this.alpha)
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+        currentCtx.fillStyle = '#111'
+        currentCtx.fill()
+        currentCtx.restore()
       }
     }
 
@@ -218,7 +271,7 @@ export default function Home() {
       constructor(x: number, y: number) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 15 + 10
+        this.radius = Math.random() * 20 + 12
         this.vx = (Math.random() - 0.5) * 6
         this.vy = (Math.random() - 1) * 6 - 2
         this.alpha = 1
@@ -235,13 +288,15 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, this.alpha)
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, Math.max(1, this.radius), 0, Math.PI * 2)
-        ctx.fillStyle = this.color
-        ctx.fill()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = Math.max(0, this.alpha)
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, Math.max(1, this.radius), 0, Math.PI * 2)
+        currentCtx.fillStyle = this.color
+        currentCtx.fill()
+        currentCtx.restore()
       }
     }
 
@@ -258,7 +313,7 @@ export default function Home() {
       constructor(x: number, y: number, isMagicPrincess: boolean = false) {
         this.x = x
         this.y = y
-        this.radius = Math.random() * 8 + 4
+        this.radius = Math.random() * 10 + 5
         this.vx = (Math.random() - 0.5) * 7
         this.vy = (Math.random() - 0.5) * 7
         this.alpha = 1
@@ -273,13 +328,15 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, this.alpha)
-        ctx.fillStyle = this.color
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.globalAlpha = Math.max(0, this.alpha)
+        currentCtx.fillStyle = this.color
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.restore()
       }
     }
 
@@ -296,7 +353,7 @@ export default function Home() {
         this.centerX = centerX
         this.centerY = centerY
         this.angle = Math.random() * Math.PI * 2
-        this.distance = Math.random() * 40 + 30
+        this.distance = Math.random() * 50 + 60 // Adaptado al nuevo tamaño de rostro
         this.speed = 0.08
         this.x = this.centerX + Math.cos(this.angle) * this.distance
         this.y = this.centerY + Math.sin(this.angle) * this.distance
@@ -311,12 +368,14 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.fillStyle = '#111'
-        ctx.beginPath()
-        ctx.ellipse(this.x, this.y, 10, 5, this.angle, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.fillStyle = '#111'
+        currentCtx.beginPath()
+        currentCtx.ellipse(this.x, this.y, 14, 7, this.angle, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.restore()
       }
     }
 
@@ -328,13 +387,13 @@ export default function Home() {
       speed: number
       centerX: number
       centerY: number
-      size: number = 25
+      size: number = 30
 
       constructor(centerX: number, centerY: number, index: number, total: number) {
         this.centerX = centerX
         this.centerY = centerY
         this.angle = (index / total) * Math.PI * 2
-        this.distance = 55
+        this.distance = 95 // Adaptado al tamaño más grande de la reina
         this.speed = 0.04
         this.x = this.centerX + Math.cos(this.angle) * this.distance
         this.y = this.centerY + Math.sin(this.angle) * this.distance
@@ -349,23 +408,31 @@ export default function Home() {
       }
 
       draw() {
-        ctx.save()
-        ctx.fillStyle = '#ff3838'
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.strokeStyle = '#2f3640'
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.moveTo(this.x, this.y - this.size / 2)
-        ctx.lineTo(this.x + 4, this.y - this.size / 2 - 6)
-        ctx.stroke()
-        ctx.restore()
+        const currentCtx = canvasRef.current?.getContext('2d')
+        if (!currentCtx) return
+        currentCtx.save()
+        currentCtx.fillStyle = '#ff3838'
+        currentCtx.beginPath()
+        currentCtx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2)
+        currentCtx.fill()
+        currentCtx.strokeStyle = '#2f3640'
+        currentCtx.lineWidth = 3
+        currentCtx.beginPath()
+        currentCtx.moveTo(this.x, this.y - this.size / 2)
+        currentCtx.lineTo(this.x + 4, this.y - this.size / 2 - 6)
+        currentCtx.stroke()
+        currentCtx.restore()
       }
     }
 
     const createExplosion = (x: number, y: number) => {
       for (let i = 0; i < 25; i++) {
+        particlesRef.current.push(new Particle(x, y))
+      }
+    }
+
+    const createPotionEffect = (x: number, y: number) => {
+      for (let i = 0; i < 30; i++) {
         particlesRef.current.push(new Particle(x, y))
       }
     }
@@ -388,26 +455,67 @@ export default function Home() {
       }
     }
 
-    const drawCrosshair = () => {
+    const drawHorrorBackground = () => {
+      const w = canvas.width
+      const h = canvas.height
+
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, h)
+      bgGrad.addColorStop(0, '#050205')
+      bgGrad.addColorStop(0.5, '#120404')
+      bgGrad.addColorStop(1, '#1b0000')
+      ctx.fillStyle = bgGrad
+      ctx.fillRect(0, 0, w, h)
+
+      bgOffsetRef.current += 0.5
+      ctx.fillStyle = 'rgba(50, 50, 50, 0.25)'
+      for (let i = 0; i < 3; i++) {
+        const fogX = (i * 400 - (bgOffsetRef.current % 400))
+        ctx.beginPath()
+        ctx.arc(fogX, h - 50, 180, 0, Math.PI * 2)
+        ctx.arc(fogX + 250, h - 30, 220, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
+    const drawSpookyPumpkinCrosshair = () => {
       const { x, y } = mousePosRef.current
       ctx.save()
-      ctx.strokeStyle = '#ff4757'
-      ctx.lineWidth = 2
+
+      ctx.fillStyle = '#ff6b01'
+      ctx.strokeStyle = '#7c2d12'
+      ctx.lineWidth = 3
 
       ctx.beginPath()
-      ctx.arc(x, y, 20, 0, Math.PI * 2)
+      ctx.arc(x, y, 22, 0, Math.PI * 2)
+      ctx.fill()
       ctx.stroke()
 
+      ctx.fillStyle = '#27ae60'
+      ctx.fillRect(x - 3, y - 28, 6, 8)
+
+      ctx.fillStyle = '#f1c40f'
       ctx.beginPath()
-      ctx.arc(x, y, 4, 0, Math.PI * 2)
-      ctx.fillStyle = '#ff4757'
+      ctx.moveTo(x - 10, y - 6)
+      ctx.lineTo(x - 4, y - 6)
+      ctx.lineTo(x - 7, y - 12)
+      ctx.closePath()
       ctx.fill()
 
       ctx.beginPath()
-      ctx.moveTo(x - 30, y); ctx.lineTo(x - 10, y)
-      ctx.moveTo(x + 10, y); ctx.lineTo(x + 30, y)
-      ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10)
-      ctx.moveTo(x, y + 10); ctx.lineTo(x, y + 30)
+      ctx.moveTo(x + 4, y - 6)
+      ctx.lineTo(x + 10, y - 6)
+      ctx.lineTo(x + 7, y - 12)
+      ctx.closePath()
+      ctx.fill()
+
+      ctx.strokeStyle = '#1a0000'
+      ctx.lineWidth = 2.5
+      ctx.beginPath()
+      ctx.moveTo(x - 12, y + 4)
+      ctx.lineTo(x - 6, y + 9)
+      ctx.lineTo(x, y + 4)
+      ctx.lineTo(x + 6, y + 9)
+      ctx.lineTo(x + 12, y + 4)
       ctx.stroke()
 
       ctx.restore()
@@ -418,11 +526,31 @@ export default function Home() {
 
       const { x: mx, y: my } = mousePosRef.current
 
+      const potions = potionsRef.current
+      for (let i = potions.length - 1; i >= 0; i--) {
+        const p = potions[i]
+        if (
+          mx >= p.x - p.size / 2 &&
+          mx <= p.x + p.size / 2 &&
+          my >= p.y - p.size / 2 &&
+          my <= p.y + p.size / 2
+        ) {
+          createPotionEffect(p.x, p.y)
+          potions.splice(i, 1)
+
+          setLives(prev => Math.min(prev + 1, 3))
+          if (spawnIntervalRef.current > 12) {
+            spawnIntervalRef.current -= 5
+          }
+          return
+        }
+      }
+
       for (let i = applesRef.current.length - 1; i >= 0; i--) {
         const apple = applesRef.current[i]
         const dx = mx - apple.x
         const dy = my - apple.y
-        if (Math.sqrt(dx * dx + dy * dy) < 15) {
+        if (Math.sqrt(dx * dx + dy * dy) < 18) {
           createExplosion(apple.x, apple.y)
           return
         }
@@ -465,7 +593,7 @@ export default function Home() {
       if (!canvasRef.current) return
 
       if (!gameOverRef.current) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+        drawHorrorBackground()
 
         if (lightningTimerRef.current > 0) {
           lightningTimerRef.current--
@@ -477,9 +605,22 @@ export default function Home() {
 
         spawnTimerRef.current++
         if (spawnTimerRef.current >= spawnIntervalRef.current) {
-          targetsRef.current.push(new Target())
+          if (Math.random() < 0.125) {
+            potionsRef.current.push(new Potion())
+          } else {
+            targetsRef.current.push(new Target())
+          }
           spawnTimerRef.current = 0
           if (spawnIntervalRef.current > 15) spawnIntervalRef.current -= 0.8
+        }
+
+        for (let i = potionsRef.current.length - 1; i >= 0; i--) {
+          const p = potionsRef.current[i]
+          p.update()
+          p.draw()
+          if (p.y > canvasRef.current.height + p.size) {
+            potionsRef.current.splice(i, 1)
+          }
         }
 
         for (let i = smokeParticlesRef.current.length - 1; i >= 0; i--) {
@@ -548,7 +689,7 @@ export default function Home() {
           if (p.alpha <= 0) particlesRef.current.splice(i, 1)
         }
 
-        drawCrosshair()
+        drawSpookyPumpkinCrosshair()
       }
 
       animationRef.current = requestAnimationFrame(gameLoop)
@@ -565,22 +706,22 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="relative min-h-screen bg-[#1a1a1a] text-white overflow-hidden flex flex-col items-center justify-center select-none" style={{ cursor: 'none' }}>
-      <div className="relative shadow-[0_0_20px_rgba(0,0,0,0.8)] border-4 border-[#333] rounded-lg overflow-hidden">
-        <canvas ref={canvasRef} className="block bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364]" />
+    <main className="relative min-h-screen bg-[#050205] text-white overflow-hidden flex flex-col items-center justify-center select-none" style={{ cursor: 'none' }}>
+      <div className="relative shadow-[0_0_25px_rgba(255,0,0,0.3)] border-4 border-[#331111] rounded-lg overflow-hidden">
+        <canvas ref={canvasRef} className="block" />
         
-        <div className="absolute top-4 left-4 right-4 flex justify-between text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.8)] pointer-events-none">
+        <div className="absolute top-4 left-4 right-4 flex justify-between text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
           <div>Puntos: <span id="score">{score}</span></div>
           <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
         </div>
 
         {gameOver && (
-          <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-4 z-50">
-            <h1 className="text-[#ff4757] text-4xl font-bold m-0">¡JUEGO TERMINADO!</h1>
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-4 z-50">
+            <h1 className="text-[#ff4757] text-4xl font-bold m-0 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">¡JUEGO TERMINADO!</h1>
             <p className="text-xl">Puntuación Final: <span>{score}</span></p>
             <button 
               onClick={restartGame}
-              className="px-6 py-3 text-lg bg-[#2ed573] hover:bg-[#26af5f] text-white border-none rounded cursor-pointer transition-transform hover:scale-105"
+              className="px-6 py-3 text-lg bg-[#2ed573] hover:bg-[#26af5f] text-white border-none rounded cursor-pointer transition-transform hover:scale-105 shadow-[0_0_10px_rgba(46,213,115,0.5)]"
             >
               Jugar de Nuevo
             </button>
