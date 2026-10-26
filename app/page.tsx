@@ -451,7 +451,7 @@ export default function Home() {
         this.y = y
         this.size = Math.random() * 10 + 6
         this.vx = (Math.random() - 0.5) * 4
-        this.vy = (Math.random() - 1) * 4 - 1
+        this.vy = (Math.random() - 1) * 4
         this.alpha = 1
         this.decay = Math.random() * 0.035 + 0.015
         const colors = ['#ff2e00', '#ff6b00', '#ffa800', '#ffea00']
@@ -825,7 +825,7 @@ export default function Home() {
             if (randChance < 0.5) {
               lightningTimerRef.current = 25
             } else {
-              blackoutTimerRef.current = 10 // 🌟 Apagón ultrarrápido de milisegundos (10 frames)
+              blackoutTimerRef.current = 10 
             }
             randomEffectTimerRef.current = 0
           }
@@ -861,7 +861,6 @@ export default function Home() {
             ctx.restore()
           }
 
-          // 🌟 Apagón limpio de milisegundos sin texto
           if (blackoutTimerRef.current > 0) {
             blackoutTimerRef.current--
             ctx.fillStyle = '#000000'
@@ -992,47 +991,45 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="relative min-h-screen bg-[#050205] text-white overflow-hidden flex flex-col items-center justify-center select-none" style={{ cursor: 'none' }}>
-      <div className="relative shadow-[0_0_25px_rgba(255,0,0,0.3)] border-4 border-[#331111] rounded-lg overflow-hidden">
-        <canvas ref={canvasRef} className="block" />
-        
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
-          <div className="flex gap-6">
-            <div>Puntos: <span id="score">{score}</span></div>
-            <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
-          </div>
+    <main className="relative w-screen h-screen bg-[#050205] text-white overflow-hidden select-none m-0 p-0" style={{ cursor: 'none' }}>
+      <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
+      
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-xl font-bold drop-shadow-[2px_2px_4px_rgba(0,0,0,0.9)] pointer-events-none z-30">
+        <div className="flex gap-6">
+          <div>Puntos: <span id="score">{score}</span></div>
+          <div>Vidas: <span id="lives">{'❤️'.repeat(Math.max(0, lives))}</span></div>
+        </div>
+        <button 
+          onClick={() => setIsPaused(prev => !prev)}
+          className="px-4 py-1.5 bg-[#4a1515] hover:bg-[#6b1d1d] text-white text-sm font-bold border border-[#ff4757] rounded cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_8px_rgba(255,0,0,0.5)]"
+        >
+          {isPaused ? 'Reanudar' : 'Pausa ⏸️'}
+        </button>
+      </div>
+
+      {isPaused && !gameOver && (
+        <div className="absolute inset-0 bg-black/40 flex items-end justify-end p-6 z-40 pointer-events-none">
           <button 
-            onClick={() => setIsPaused(prev => !prev)}
-            className="px-4 py-1.5 bg-[#4a1515] hover:bg-[#6b1d1d] text-white text-sm font-bold border border-[#ff4757] rounded cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_8px_rgba(255,0,0,0.5)]"
+            onClick={() => setIsPaused(false)}
+            className="px-5 py-2.5 bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded-lg cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_15px_rgba(46,213,115,0.7)]"
           >
-            {isPaused ? 'Reanudar' : 'Pausa ⏸️'}
+            ▶️ Continuar
           </button>
         </div>
+      )}
 
-        {isPaused && !gameOver && (
-          <div className="absolute inset-0 bg-transparent flex items-end justify-end p-6 z-40 pointer-events-none">
-            <button 
-              onClick={() => setIsPaused(false)}
-              className="px-5 py-2.5 bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded-lg cursor-pointer pointer-events-auto transition-transform hover:scale-105 shadow-[0_0_15px_rgba(46,213,115,0.7)]"
-            >
-              ▶️ Continuar
-            </button>
-          </div>
-        )}
-
-        {gameOver && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-4 z-50 pointer-events-auto">
-            <h1 className="text-[#ff4757] text-4xl font-bold m-0 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">¡JUEGO TERMINADO!</h1>
-            <p className="text-xl">Puntuación Final: <span>{score}</span></p>
-            <button 
-              onClick={restartGame}
-              className="px-6 py-3 text-lg bg-[#2ed573] hover:bg-[#26af5f] text-white border-none rounded cursor-pointer transition-transform hover:scale-105 shadow-[0_0_10px_rgba(46,213,115,0.5)]"
-            >
-              Jugar de Nuevo
-            </button>
-          </div>
-        )}
-      </div>
+      {gameOver && (
+        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-4 z-50 pointer-events-auto">
+          <h1 className="text-[#ff4757] text-4xl font-bold m-0 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">¡JUEGO TERMINADO!</h1>
+          <p className="text-xl">Puntuación Final: <span>{score}</span></p>
+          <button 
+            onClick={restartGame}
+            className="px-6 py-3 text-lg bg-[#2ed573] hover:bg-[#26af5f] text-white font-bold rounded-lg cursor-pointer transition-transform hover:scale-105 shadow-[0_0_15px_rgba(46,213,115,0.7)]"
+          >
+            🔄 Jugar de Nuevo
+          </button>
+        </div>
+      )}
     </main>
   )
 }
