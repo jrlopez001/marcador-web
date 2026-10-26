@@ -162,7 +162,7 @@ export default function Home() {
     }
 
     class YellowPotion {
-      size: number = 45
+      size: number = 50
       x: number
       y: number
       speed: number
@@ -323,7 +323,7 @@ export default function Home() {
     }
 
     class Potion {
-      size: number = 45
+      size: number = 50
       x: number
       y: number
       speed: number
@@ -572,7 +572,7 @@ export default function Home() {
       speed: number
       centerX: number
       centerY: number
-      size: number = 28
+      size: number = 32
 
       constructor(centerX: number, centerY: number, index: number, total: number) {
         this.centerX = centerX
@@ -725,15 +725,16 @@ export default function Home() {
       if (gameOverRef.current || isPausedRef.current) return
 
       const { x: mx, y: my } = mousePosRef.current
+      const padding = 20 // Margen de tolerancia extra (Hitbox más grande y fácil)
 
       const potions = potionsRef.current
       for (let i = potions.length - 1; i >= 0; i--) {
         const p = potions[i]
         if (
-          mx >= p.x - p.size / 2 &&
-          mx <= p.x + p.size / 2 &&
-          my >= p.y - p.size / 2 &&
-          my <= p.y + p.size / 2
+          mx >= p.x - p.size / 2 - padding &&
+          mx <= p.x + p.size / 2 + padding &&
+          my >= p.y - p.size / 2 - padding &&
+          my <= p.y + p.size / 2 + padding
         ) {
           createPotionEffect(p.x, p.y)
           potions.splice(i, 1)
@@ -750,10 +751,10 @@ export default function Home() {
       for (let i = yellowPotions.length - 1; i >= 0; i--) {
         const yp = yellowPotions[i]
         if (
-          mx >= yp.x - yp.size / 2 &&
-          mx <= yp.x + yp.size / 2 &&
-          my >= yp.y - yp.size / 2 &&
-          my <= yp.y + yp.size / 2
+          mx >= yp.x - yp.size / 2 - padding &&
+          mx <= yp.x + yp.size / 2 + padding &&
+          my >= yp.y - yp.size / 2 - padding &&
+          my <= yp.y + yp.size / 2 + padding
         ) {
           createPotionEffect(yp.x, yp.y)
           yellowPotions.splice(i, 1)
@@ -767,7 +768,7 @@ export default function Home() {
         const apple = applesRef.current[i]
         const dx = mx - apple.x
         const dy = my - apple.y
-        if (Math.sqrt(dx * dx + dy * dy) < 16) {
+        if (Math.sqrt(dx * dx + dy * dy) < apple.size + padding) {
           createExplosion(apple.x, apple.y)
           return
         }
@@ -777,13 +778,13 @@ export default function Home() {
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i]
         
-        if (t.y < canvas.height / 2 || t.alpha < 0.25) continue
+        // Se eliminó la restricción de t.y < canvas.height / 2 para poder matar en toda la pantalla
 
         if (
-          mx >= t.x - t.size / 2 &&
-          mx <= t.x + t.size / 2 &&
-          my >= t.y - t.size / 2 &&
-          my <= t.y + t.size / 2
+          mx >= t.x - t.size / 2 - padding &&
+          mx <= t.x + t.size / 2 + padding &&
+          my >= t.y - t.size / 2 - padding &&
+          my <= t.y + t.size / 2 + padding
         ) {
           createExplosion(t.x, t.y)
 
